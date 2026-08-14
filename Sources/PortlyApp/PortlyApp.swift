@@ -7,6 +7,7 @@ struct PortlyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var supervisor = Supervisor.shared
     @AppStorage(PortlyPreferences.showMenuBarItemKey) private var showMenuBarItem = true
+    @AppStorage(PortlyPreferences.showInDockKey) private var showInDock = true
     private let updater = PortlyUpdater.shared
 
     var body: some Scene {
@@ -33,6 +34,16 @@ struct PortlyApp: App {
             MenuBarLabel(supervisor: supervisor)
         }
         .menuBarExtraStyle(.window)
+        .onChange(of: showMenuBarItem) { previous, visible in
+            // Command-dragging the extra out writes this binding directly.
+            var next = AppPresentation(showInDock: showInDock, showMenuBar: visible)
+            next.setShowMenuBar(visible)
+            let before = AppPresentation(showInDock: showInDock, showMenuBar: previous)
+            guard next != before else { return }
+            showInDock = next.showInDock
+            showMenuBarItem = next.showMenuBar
+            next.apply(activateIfRegular: before.usesAccessoryPolicy && !next.usesAccessoryPolicy)
+        }
 
         Settings {
             SettingsView()
@@ -68,7 +79,13 @@ private struct MenuBarLabel: View {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var control: ControlServer?
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        let presentation = AppPresentation.applyFromUserDefaults()
+        WindowOpener.suppressMainWindowAtLaunch = presentation.usesAccessoryPolicy
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        WindowOpener.hideMainWindowIfNeeded()
         PortlyPaths.ensureDirectories()
         Notifications.requestAuthorization()
         let server = ControlServer(supervisor: Supervisor.shared, port: Supervisor.shared.settings.apiPort)
@@ -97,11 +114,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 enum WindowOpener {
     static let mainWindowID = "portly.main"
     static var opener: (() -> Void)?
+    /// Accessory launches still instantiate the SwiftUI `Window` scene. Hide it
+    /// once so menu-bar-only mode does not flash the main window, then allow
+    /// later `Open Portly` requests to show it.
+    static var suppressMainWindowAtLaunch = false
 
-    static func registerCurrentWindow() {}
+    static func registerCurrentWindow() {
+        hideMainWindowIfNeeded()
+    }
+
+    static func hideMainWindowIfNeeded() {
+        guard suppressMainWindowAtLaunch else { return }
+        hideMainWindow()
+    }
 
     static func openMainWindow() {
         DispatchQueue.main.async {
+            suppressMainWindowAtLaunch = false
             NSApp.activate(ignoringOtherApps: true)
             if let window = NSApp.windows.first(where: { $0.identifier?.rawValue.contains(mainWindowID) == true }) {
                 window.makeKeyAndOrderFront(nil)
@@ -109,5 +138,14 @@ enum WindowOpener {
             }
             opener?()
         }
+    }
+
+    private static func hideMainWindow() {
+        guard let window = NSApp.windows.first(where: {
+            $0.identifier?.rawValue.contains(mainWindowID) == true
+        }) else {
+            return
+        }
+        window.orderOut(nil)
     }
 }

@@ -67,6 +67,19 @@ struct ServerDetail: View {
                         .help("Restart the server")
                 }
 
+                if !runtime.config.actions.isEmpty {
+                    Menu {
+                        ForEach(Array(runtime.config.actions.enumerated()), id: \.offset) { _, action in
+                            Button(action.name) {
+                                supervisor.runAction(action, for: runtime)
+                            }
+                        }
+                    } label: {
+                        Label("Actions", systemImage: "bolt.fill")
+                    }
+                    .help("Run a maintenance action without restarting the server")
+                }
+
                 if let url = runtime.url {
                     Button {
                         if let link = URL(string: url) { NSWorkspace.shared.open(link) }

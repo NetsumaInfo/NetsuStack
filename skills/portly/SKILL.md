@@ -36,6 +36,7 @@ The Portly installer also adds this rule, between `portly:managed-rule` markers,
 | `status`, `list`, `ls` | Compact active/problem view; add `--details` for the full inventory |
 | `temp`, `temporary`, `run-temp` | Run a short-lived process outside any project |
 | `wait` | Wait for a temporary job and return its real exit code |
+| `action` | Run a configured maintenance action without restarting the server |
 | `memory-limit`, `ram-limit` | Show or configure automatic project restarts by footprint |
 | `start`, `stop`, `restart` | Control a server or every server in `--project` |
 | `logs` | Read captured output with `--tail` |
@@ -79,6 +80,16 @@ Portly injects `PORT`, `PORTLY=1`, and `PORTLY_SERVER`. The configured port driv
 ## Operate and diagnose
 
 Use `start`, `stop`, or `restart` with a server, or `--project <project>`. `portly stop --all --json` stops everything. Use `update-server` to change fields, then restart a running server.
+
+For repeatable maintenance that must not restart the managed server, configure an action and run it as a supervised temporary job:
+
+```bash
+portly update-server <project/server> --action 'clear-cache=trash .next/cache'
+job_id="$(portly action <project/server> clear-cache)"
+portly wait "$job_id"
+```
+
+Actions inherit the server's working directory, environment, `PORT`, and original `PORTLY_SERVER`. Use an application endpoint or another framework-supported command for in-memory caches; removing a disk cache cannot clear state already held by the live process.
 
 Inspect conflicts with `portly port <port> --json`. Use `portly kill-port <port> --json` only when the stop is requested or the occupant is confirmed in scope. Portly sends SIGTERM to regular processes and, for a Docker-published port, resolves and stops only the publishing container. It never auto-stops conflicts or signals Docker Desktop's global backend.
 

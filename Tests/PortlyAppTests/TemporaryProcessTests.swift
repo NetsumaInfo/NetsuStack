@@ -4,6 +4,27 @@ import XCTest
 
 @MainActor
 final class TemporaryProcessTests: XCTestCase {
+    func testServerConfigDecodesOlderPayloadWithoutActions() throws {
+        let payload = Data(#"{"name":"web","command":"pnpm dev"}"#.utf8)
+
+        let server = try PortlyAPI.decoder().decode(ServerConfig.self, from: payload)
+
+        XCTAssertTrue(server.actions.isEmpty)
+    }
+
+    func testServerActionsRoundTripThroughConfig() throws {
+        let server = ServerConfig(
+            name: "web",
+            command: "pnpm dev",
+            actions: [ServerAction(name: "clear-cache", command: "trash .next/cache")]
+        )
+
+        let data = try PortlyAPI.encoder().encode(server)
+        let decoded = try PortlyAPI.decoder().decode(ServerConfig.self, from: data)
+
+        XCTAssertEqual(decoded.actions, server.actions)
+    }
+
     func testPortlyStatusDecodesOlderPayloadWithoutTemporaryServers() throws {
         let payload = Data(#"{"version":"0.1.10","apiPort":7737,"projects":[]}"#.utf8)
 

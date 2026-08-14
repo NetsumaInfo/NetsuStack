@@ -7,6 +7,7 @@ import SwiftUI
 struct MenuBarContent: View {
     @EnvironmentObject private var supervisor: Supervisor
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @State private var listHeight: CGFloat = 0
 
     private static let maxListHeight: CGFloat = 420
@@ -143,6 +144,14 @@ struct MenuBarContent: View {
             Button("Ports") {
                 AppSelection.shared.pending = .ports
                 WindowOpener.openMainWindow()
+            }
+            .buttonStyle(.borderless)
+
+            Button("Settings…") {
+                NSApp.activate(ignoringOtherApps: true)
+                DispatchQueue.main.async {
+                    openSettings()
+                }
             }
             .buttonStyle(.borderless)
 

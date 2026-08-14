@@ -182,7 +182,7 @@ struct Portly: ParsableCommand {
         """,
         version: portlyVersion,
         subcommands: [
-            Status.self, Start.self, Stop.self, Restart.self, Logs.self,
+            Status.self, Start.self, Stop.self, Restart.self, Action.self, Logs.self,
             Temp.self, Wait.self, AddProject.self, AddServer.self, UpdateServer.self,
             MemoryLimit.self, Remove.self, TakeOver.self, Port.self, KillPort.self, Open.self, Quit.self, Forever.self, Config.self,
         ],
@@ -274,6 +274,41 @@ struct Restart: ParsableCommand {
             fail("Pass a server name, or --project <name>.")
         }
         runAction("restart", target, options)
+    }
+}
+
+struct Action: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "action",
+        abstract: "Run a configured server action without restarting the server."
+    )
+
+    @Argument(help: "Server name or id. Use project/server to disambiguate.")
+    var server: String
+
+    @Argument(help: "Configured action name, for example clear-cache.")
+    var action: String
+
+    @Option(name: .long, help: "Maximum runtime, for example 30s, 10m, or 2h.")
+    var timeout = "30m"
+
+    @OptionGroup var options: GlobalOptions
+
+    func run() throws {
+        guard let timeoutSeconds = TemporaryTimeout.parse(timeout) else {
+            fail("Bad --timeout '\(timeout)'. Use 30s, 10m, 2h, or seconds up to 7 days")
+        }
+        let body = PortlyAPI.RunServerActionRequest(
+            server: server,
+            action: action,
+            timeoutSeconds: timeoutSeconds
+        )
+        do {
+            let job = try client(options).post("actions/run", body, as: TemporaryJobStatus.self)
+            emit(job, json: options.json) { $0.id }
+        } catch {
+            fail(error.localizedDescription)
+        }
     }
 }
 
@@ -575,6 +610,9 @@ struct AddServer: ParsableCommand {
     @Option(name: .long, parsing: .upToNextOption, help: "Environment variables as KEY=VALUE.")
     var env: [String] = []
 
+    @Option(name: .customLong("action"), parsing: .upToNextOption, help: "Maintenance actions as NAME=COMMAND.")
+    var actions: [String] = []
+
     @Flag(name: .long, inversion: .prefixedNo, help: "Restart automatically after a crash.")
     var autoRestart = true
 
@@ -590,11 +628,12 @@ struct AddServer: ParsableCommand {
             guard parts.count == 2 else { fail("Bad --env value '\(entry)', expected KEY=VALUE") }
             parsedEnv[String(parts[0])] = String(parts[1])
         }
+        let parsedActions = parseServerActions(actions)
         let body = PortlyAPI.AddServerRequest(
             project: project, name: name, command: command, port: port,
             directory: directory, env: parsedEnv.isEmpty ? nil : parsedEnv,
             healthURL: healthUrl, healthStatus: nil,
-            autoRestart: autoRestart, start: start
+            autoRestart: autoRestart, actions: parsedActions.isEmpty ? nil : parsedActions, start: start
         )
         do {
             let server = try client(options).post("servers/add", body, as: ServerConfig.self)
@@ -620,12 +659,21 @@ struct UpdateServer: ParsableCommand {
     @Option(name: .long) var directory: String?
     @Option(name: .long) var healthUrl: String?
 
+    @Option(name: .customLong("action"), parsing: .upToNextOption, help: "Replace maintenance actions with NAME=COMMAND values.")
+    var actions: [String] = []
+
+    @Flag(name: .long, help: "Remove every configured action.")
+    var clearActions = false
+
     @Flag(name: .long, inversion: .prefixedNo, help: "Restart automatically after a crash.")
     var autoRestart: Bool?
 
     @OptionGroup var options: GlobalOptions
 
     func run() throws {
+        guard actions.isEmpty || !clearActions else {
+            fail("Pass --action values or --clear-actions, not both")
+        }
         var body = PortlyAPI.UpdateServerRequest(server: server)
         body.name = name
         body.command = command
@@ -633,12 +681,33 @@ struct UpdateServer: ParsableCommand {
         body.directory = directory
         body.healthURL = healthUrl
         body.autoRestart = autoRestart
+        if clearActions {
+            body.actions = []
+        } else if !actions.isEmpty {
+            body.actions = parseServerActions(actions)
+        }
         do {
             let updated = try client(options).post("servers/update", body, as: ServerConfig.self)
             emit(updated, json: options.json) { "Updated \($0.name)" }
         } catch {
             fail(error.localizedDescription)
         }
+    }
+}
+
+private func parseServerActions(_ values: [String]) -> [ServerAction] {
+    var seen = Set<String>()
+    return values.map { entry in
+        let parts = entry.split(separator: "=", maxSplits: 1)
+        guard parts.count == 2 else { fail("Bad --action value '\(entry)', expected NAME=COMMAND") }
+        let name = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let command = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !command.isEmpty else {
+            fail("Bad --action value '\(entry)', name and command cannot be empty")
+        }
+        let key = name.lowercased()
+        guard seen.insert(key).inserted else { fail("Duplicate --action name '\(name)'") }
+        return ServerAction(name: name, command: command)
     }
 }
 

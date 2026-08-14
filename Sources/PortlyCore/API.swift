@@ -70,6 +70,7 @@ public enum PortlyAPI {
         public var healthURL: String?
         public var healthStatus: Int?
         public var autoRestart: Bool?
+        public var actions: [ServerAction]?
         /// Start the server immediately after adding it.
         public var start: Bool?
 
@@ -77,7 +78,7 @@ public enum PortlyAPI {
             project: String, name: String, command: String, port: Int? = nil,
             directory: String? = nil, env: [String: String]? = nil,
             healthURL: String? = nil, healthStatus: Int? = nil,
-            autoRestart: Bool? = nil, start: Bool? = nil
+            autoRestart: Bool? = nil, actions: [ServerAction]? = nil, start: Bool? = nil
         ) {
             self.project = project
             self.name = name
@@ -88,7 +89,20 @@ public enum PortlyAPI {
             self.healthURL = healthURL
             self.healthStatus = healthStatus
             self.autoRestart = autoRestart
+            self.actions = actions
             self.start = start
+        }
+    }
+
+    public struct RunServerActionRequest: Codable {
+        public var server: String
+        public var action: String
+        public var timeoutSeconds: Int?
+
+        public init(server: String, action: String, timeoutSeconds: Int? = nil) {
+            self.server = server
+            self.action = action
+            self.timeoutSeconds = timeoutSeconds
         }
     }
 
@@ -133,6 +147,7 @@ public enum PortlyAPI {
         public var healthURL: String?
         public var healthStatus: Int?
         public var autoRestart: Bool?
+        public var actions: [ServerAction]?
 
         public init(server: String) { self.server = server }
     }

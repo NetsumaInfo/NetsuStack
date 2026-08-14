@@ -8,9 +8,9 @@ struct PortlyCompanionApp: App {
         WindowGroup {
             CompanionView()
                 .environmentObject(model)
-                .frame(minWidth: 720, minHeight: 480)
+                .frame(minWidth: 680, minHeight: 420)
         }
-        .defaultSize(width: 860, height: 600)
+        .defaultSize(width: 820, height: 520)
         .commands {
             CommandGroup(after: .newItem) {
                 Button("Refresh") {
@@ -33,8 +33,10 @@ final class CompanionModel: ObservableObject {
     @Published private(set) var projects: [CompanionProject] = []
     @Published private(set) var connectionState: ConnectionState = .connecting
     @Published private(set) var activeAction: String?
+    @Published private(set) var isDemoMode = false
 
     func refresh() async {
+        guard !isDemoMode else { return }
         do {
             let status = try await PortlyServiceClient.status()
             projects = status.projects
@@ -48,6 +50,13 @@ final class CompanionModel: ObservableObject {
     func perform(_ action: String, on server: CompanionServer) async {
         activeAction = server.id
         defer { activeAction = nil }
+
+        if isDemoMode {
+            try? await Task.sleep(for: .milliseconds(250))
+            projects = CompanionDemo.applying(action, to: server.id, in: projects)
+            return
+        }
+
         do {
             try await PortlyServiceClient.perform(action, serverID: server.id)
             try? await Task.sleep(for: .milliseconds(350))
@@ -56,10 +65,23 @@ final class CompanionModel: ObservableObject {
             connectionState = .unavailable(error.localizedDescription)
         }
     }
+
+    func enterDemoMode() {
+        isDemoMode = true
+        projects = CompanionDemo.projects
+        connectionState = .connected
+    }
+
+    func exitDemoMode() async {
+        isDemoMode = false
+        connectionState = .connecting
+        await refresh()
+    }
 }
 
 private struct CompanionView: View {
     @EnvironmentObject private var model: CompanionModel
+    private let columns = [GridItem(.adaptive(minimum: 300), spacing: 16)]
 
     var body: some View {
         NavigationStack {
@@ -70,10 +92,10 @@ private struct CompanionView: View {
                 case .unavailable(let message):
                     unavailableView(message)
                 case .connected:
-                    projectList
+                    dashboard
                 }
             }
-            .navigationTitle("Portly Companion")
+            .background(Color(nsColor: .windowBackgroundColor))
             .toolbar {
                 ToolbarItem {
                     Button {
@@ -93,117 +115,247 @@ private struct CompanionView: View {
         }
     }
 
-    private var projectList: some View {
-        List {
-            Section {
-                Label("Connected securely on this Mac", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                Text("The companion controls your existing Portly service over 127.0.0.1. It never launches shell commands or reads project files itself.")
+    private var dashboard: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                dashboardHeader
+
+                if model.isDemoMode {
+                    demoBanner
+                }
+
+                if model.projects.isEmpty {
+                    emptyProjects
+                } else {
+                    ForEach(model.projects) { project in
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(project.name)
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+
+                            LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+                                ForEach(project.servers) { server in
+                                    CompanionServerCard(
+                                        server: server,
+                                        isBusy: model.activeAction == server.id,
+                                        perform: { action in
+                                            Task { await model.perform(action, on: server) }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: 1_100, alignment: .leading)
+        }
+    }
+
+    private var dashboardHeader: some View {
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Portly")
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                Text("Your local development services, at a glance.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Label("Connected", systemImage: "checkmark.circle.fill")
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.green)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(.green.opacity(0.12), in: Capsule())
+
+            if !model.isDemoMode {
+                Button("Explore Demo") {
+                    model.enterDemoMode()
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+    }
+
+    private var demoBanner: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "play.rectangle.fill")
+                .font(.title2)
+                .foregroundStyle(.blue)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Demo Mode")
+                    .font(.headline)
+                Text("Try every control safely. These sample services never affect your Mac.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
 
-            ForEach(model.projects) { project in
-                Section(project.name) {
-                    if project.servers.isEmpty {
-                        Text("No servers configured")
-                            .foregroundStyle(.secondary)
-                    }
-                    ForEach(project.servers) { server in
-                        CompanionServerRow(
-                            server: server,
-                            isBusy: model.activeAction == server.id,
-                            perform: { action in
-                                Task { await model.perform(action, on: server) }
-                            }
-                        )
-                    }
-                }
+            Spacer()
+
+            Button("Exit Demo") {
+                Task { await model.exitDemoMode() }
             }
+            .buttonStyle(.bordered)
         }
+        .padding(14)
+        .background(.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
         .overlay {
-            if model.projects.isEmpty {
-                ContentUnavailableView(
-                    "No Portly projects",
-                    systemImage: "shippingbox",
-                    description: Text("Add a project in the full Portly app, then refresh this companion.")
-                )
-            }
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(.blue.opacity(0.18))
         }
+    }
+
+    private var emptyProjects: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "shippingbox")
+                .font(.system(size: 30))
+                .foregroundStyle(.secondary)
+            Text("No Portly projects")
+                .font(.headline)
+            Text("Add a project in Portly, or explore the demo to try every control.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Button("Explore Demo") {
+                model.enterDemoMode()
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(40)
+        .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func unavailableView(_ message: String) -> some View {
-        ContentUnavailableView {
-            Label("Portly service is not running", systemImage: "bolt.slash")
-        } description: {
-            Text("Portly Companion controls an existing Portly installation on this Mac. \(message)")
-        } actions: {
-            HStack {
-                Button("Try Again") {
-                    Task { await model.refresh() }
+        VStack(spacing: 16) {
+            Image(systemName: "bolt.slash.fill")
+                .font(.system(size: 36))
+                .foregroundStyle(.orange)
+            Text("Portly service is not running")
+                .font(.title2.bold())
+            Text("Connect to the local Portly service, or explore every feature in Demo Mode.\n\(message)")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: 460)
+
+            Button("Explore Demo") {
+                model.enterDemoMode()
+            }
+            .buttonStyle(.borderedProminent)
+
+            VStack(spacing: 10) {
+                HStack {
+                    Button("Try Again") {
+                        Task { await model.refresh() }
+                    }
+                    Link("Get Portly", destination: URL(string: "https://portly.melvynx.dev")!)
                 }
-                Link("Get Portly", destination: URL(string: "https://portly.melvynx.dev")!)
             }
         }
+        .padding(40)
     }
 }
 
-private struct CompanionServerRow: View {
+private struct CompanionServerCard: View {
     let server: CompanionServer
     let isBusy: Bool
     let perform: (String) -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
-                .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 10, height: 10)
+                    .shadow(color: statusColor.opacity(0.5), radius: 3)
+                    .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 3) {
                 Text(server.name)
-                    .font(.headline)
-                HStack(spacing: 8) {
-                    Text(server.state.capitalized)
-                    if let port = server.port {
-                        Text("localhost:\(port)")
-                    }
-                    if let pid = server.pid {
-                        Text("pid \(pid)")
-                    }
-                    if let cpu = server.cpuPercent {
-                        Text("\(cpu.formatted(.number.precision(.fractionLength(0))))% CPU")
-                    }
-                    if let memory = server.memoryBytes {
-                        Text("\(ByteCountFormatter.string(fromByteCount: Int64(memory), countStyle: .memory)) footprint")
-                    }
-                    if let resident = server.residentMemoryBytes {
-                        Text("\(ByteCountFormatter.string(fromByteCount: Int64(resident), countStyle: .memory)) resident")
-                    }
+                    .font(.title3.bold())
+
+                Spacer()
+
+                Text(server.state.capitalized)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(statusColor)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(statusColor.opacity(0.12), in: Capsule())
+            }
+
+            HStack(spacing: 18) {
+                if let port = server.port {
+                    ServerMetric(label: "PORT", value: "\(port)")
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                if let pid = server.pid {
+                    ServerMetric(label: "PID", value: "\(pid)")
+                }
+                if let cpu = server.cpuPercent {
+                    ServerMetric(
+                        label: "CPU",
+                        value: "\(cpu.formatted(.number.precision(.fractionLength(0))))%"
+                    )
+                }
+                if let resident = server.residentMemoryBytes {
+                    ServerMetric(
+                        label: "MEMORY",
+                        value: ByteCountFormatter.string(fromByteCount: Int64(resident), countStyle: .memory)
+                    )
+                }
             }
 
             Spacer()
 
-            if isBusy {
-                ProgressView()
-                    .controlSize(.small)
-            } else if server.isRunning {
-                Button("Restart") { perform("/restart") }
-                Button("Stop") { perform("/stop") }
-            } else {
-                Button("Start") { perform("/start") }
-                    .buttonStyle(.borderedProminent)
+            HStack {
+                Text(server.port.map { "localhost:\($0)" } ?? "No port assigned")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.tertiary)
+
+                Spacer()
+
+                if isBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if server.isRunning {
+                    Button("Restart") { perform("/restart") }
+                    Button("Stop") { perform("/stop") }
+                } else {
+                    Button("Start") { perform("/start") }
+                        .buttonStyle(.borderedProminent)
+                }
             }
         }
-        .padding(.vertical, 5)
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: 170, alignment: .topLeading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.primary.opacity(0.08))
+        }
     }
 
     private var statusColor: Color {
         if server.healthy { return .green }
         if server.isRunning { return .orange }
         return .secondary
+    }
+}
+
+private struct ServerMetric: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.tertiary)
+            Text(value)
+                .font(.callout.monospacedDigit().weight(.medium))
+                .lineLimit(1)
+        }
     }
 }

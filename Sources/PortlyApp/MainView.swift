@@ -20,6 +20,8 @@ struct MainView: View {
     @State private var editingServer: EditingServer?
     @State private var addingProject = false
     @State private var runningTemporary = false
+    @State private var search = ""
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         NavigationSplitView {
@@ -109,9 +111,9 @@ struct MainView: View {
 
     private var sidebar: some View {
         List(selection: $selection) {
-            if !supervisor.visibleTemporaryRuntimes.isEmpty {
+            if !filteredTemporaryRuntimes.isEmpty {
                 Section {
-                    ForEach(supervisor.visibleTemporaryRuntimes, id: \.id) { runtime in
+                    ForEach(filteredTemporaryRuntimes, id: \.id) { runtime in
                         ServerRow(runtime: runtime)
                             .tag(Selection.server(runtime.id))
                             .contextMenu { temporaryServerMenu(runtime) }
@@ -122,29 +124,48 @@ struct MainView: View {
                 }
             }
 
-            ForEach(sidebarProjects) { project in
+            ForEach(filteredSidebarProjects) { project in
                 Section {
                     ProjectHeader(project: project)
                         .tag(Selection.project(project.id))
-                        .onTapGesture(count: 2) { openProject(project) }
-                        .contextMenu { projectMenu(project) }
+                        .onTapGesture(count: 2) {
+                            if let project = storedProject(project.id) { openProject(project) }
+                        }
+                        .contextMenu {
+                            if let project = storedProject(project.id) { projectMenu(project) }
+                        }
 
                     ForEach(project.servers) { server in
                         if let runtime = supervisor.runtime(for: server.id) {
                             ServerRow(runtime: runtime)
                                 .padding(.leading, 14)
                                 .tag(Selection.server(server.id))
-                                .contextMenu { serverMenu(runtime, project: project) }
+                                .contextMenu {
+                                    if let project = storedProject(project.id) {
+                                        serverMenu(runtime, project: project)
+                                    }
+                                }
                         }
                     }
                 }
             }
         }
         .listStyle(.sidebar)
+        .overlay {
+            if showEmptySearch {
+                ContentUnavailableView.search(text: search)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.background)
+            }
+        }
         // Running projects float to the top, so rows change place on their own.
         // Letting them travel keeps the list readable instead of teleporting.
         .animation(Motion.reorder, value: runningSignature)
+        .safeAreaInset(edge: .top, spacing: 0) { sidebarSearch }
         .safeAreaInset(edge: .bottom) { sidebarActions }
+        .onExitCommand {
+            if SidebarSearch.isActive(search) { search = "" }
+        }
     }
 
     /// Changes exactly when the running/idle split changes, which is what drives
@@ -170,6 +191,43 @@ struct MainView: View {
             .map(\.element)
     }
 
+    private var filteredSidebarProjects: [Project] {
+        SidebarSearch.filterProjects(sidebarProjects, query: search)
+    }
+
+    private var filteredTemporaryRuntimes: [ServerRuntime] {
+        supervisor.visibleTemporaryRuntimes.filter {
+            SidebarSearch.matchesServer($0.config, query: search)
+        }
+    }
+
+    private var showEmptySearch: Bool {
+        SidebarSearch.isActive(search)
+            && filteredTemporaryRuntimes.isEmpty
+            && filteredSidebarProjects.isEmpty
+    }
+
+    /// Search returns truncated `Project` copies. Mutations and "open" must use
+    /// the store value so a filter cannot delete sibling servers on save.
+    private func storedProject(_ id: String) -> Project? {
+        supervisor.projects.first { $0.id == id }
+    }
+
+    private func activateFirstMatch() {
+        switch SidebarSearch.firstMatch(
+            temporaryServers: supervisor.visibleTemporaryRuntimes.map(\.config),
+            projects: sidebarProjects,
+            query: search
+        ) {
+        case .server(let id):
+            selection = .server(id)
+        case .project(let id):
+            selection = .project(id)
+        case nil:
+            break
+        }
+    }
+
     private func projectIsRunning(_ project: Project) -> Bool {
         project.servers.contains { server in
             supervisor.runtime(for: server.id)?.isRunning == true
@@ -184,6 +242,14 @@ struct MainView: View {
         else { return }
 
         NSWorkspace.shared.open(link)
+    }
+
+    private var sidebarSearch: some View {
+        SidebarSearchField(
+            text: $search,
+            focused: $searchFocused,
+            onSubmit: activateFirstMatch
+        )
     }
 
     private var sidebarActions: some View {

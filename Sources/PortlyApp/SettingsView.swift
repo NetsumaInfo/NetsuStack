@@ -6,6 +6,7 @@ import SwiftUI
 enum PortlyPreferences {
     static let showMenuBarItemKey = "showMenuBarItem"
     static let showMenuBarNameKey = "showMenuBarName"
+    static let showInDockKey = "showInDock"
 }
 
 struct SettingsView: View {
@@ -25,6 +26,7 @@ struct SettingsView: View {
 private struct GeneralSettingsView: View {
     @AppStorage(PortlyPreferences.showMenuBarItemKey) private var showMenuBarItem = true
     @AppStorage(PortlyPreferences.showMenuBarNameKey) private var showMenuBarName = false
+    @AppStorage(PortlyPreferences.showInDockKey) private var showInDock = true
     @AppStorage("agentOnboardingDismissed") private var agentOnboardingDismissed = false
     @State private var launchAtLogin = false
     @State private var loginItemError: String?
@@ -32,7 +34,7 @@ private struct GeneralSettingsView: View {
     var body: some View {
         Form {
             Section("Menu bar") {
-                Toggle("Show Portly in the menu bar", isOn: $showMenuBarItem)
+                Toggle("Show Portly in the menu bar", isOn: menuBarBinding)
 
                 Picker("Appearance", selection: $showMenuBarName) {
                     Text("Icon only").tag(false)
@@ -42,6 +44,14 @@ private struct GeneralSettingsView: View {
                 .disabled(!showMenuBarItem)
 
                 Text("Hold Command and drag Portly to reposition it in the menu bar.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Dock") {
+                Toggle("Show Portly in the Dock", isOn: dockBinding)
+
+                Text("When hidden, Portly stays in the menu bar and keeps supervising servers.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -81,6 +91,12 @@ private struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear {
+            let repaired = AppPresentation.load()
+            if repaired.showInDock != showInDock || repaired.showMenuBar != showMenuBarItem {
+                commit(repaired)
+            }
+        }
         .task { launchAtLogin = SMAppService.mainApp.status == .enabled }
         .alert("Unable to update login setting", isPresented: Binding(
             get: { loginItemError != nil },
@@ -95,6 +111,39 @@ private struct GeneralSettingsView: View {
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
             ?? portlyVersion
+    }
+
+    private var presentation: AppPresentation {
+        AppPresentation(showInDock: showInDock, showMenuBar: showMenuBarItem)
+    }
+
+    private var dockBinding: Binding<Bool> {
+        Binding(
+            get: { showInDock },
+            set: { value in
+                var next = presentation
+                next.setShowInDock(value)
+                commit(next)
+            }
+        )
+    }
+
+    private var menuBarBinding: Binding<Bool> {
+        Binding(
+            get: { showMenuBarItem },
+            set: { value in
+                var next = presentation
+                next.setShowMenuBar(value)
+                commit(next)
+            }
+        )
+    }
+
+    private func commit(_ next: AppPresentation) {
+        let becameRegular = presentation.usesAccessoryPolicy && !next.usesAccessoryPolicy
+        showInDock = next.showInDock
+        showMenuBarItem = next.showMenuBar
+        next.apply(activateIfRegular: becameRegular)
     }
 
     private func updateLaunchAtLogin(_ enabled: Bool) {

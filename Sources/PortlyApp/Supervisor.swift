@@ -525,6 +525,27 @@ final class Supervisor: ObservableObject {
         return runtime
     }
 
+    @discardableResult
+    func runAction(
+        _ action: ServerAction,
+        for runtime: ServerRuntime,
+        timeoutSeconds: Int = TemporaryTimeout.defaultSeconds
+    ) -> ServerRuntime {
+        var env = runtime.config.env
+        env["PORTLY_SERVER"] = runtime.config.name
+        if let port = runtime.config.port {
+            env["PORT"] = String(port)
+        }
+        return runTemporary(
+            name: "\(runtime.config.name): \(action.name)",
+            command: action.command,
+            directory: runtime.workingDirectory,
+            port: nil,
+            env: env,
+            timeoutSeconds: timeoutSeconds
+        )
+    }
+
     private func uniqueTemporaryName(_ requestedName: String) -> String {
         let base = requestedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? "Temporary process"

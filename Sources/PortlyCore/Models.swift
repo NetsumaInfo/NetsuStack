@@ -2,6 +2,18 @@ import Foundation
 
 // MARK: - Config model (what lives in ~/.config/portly/config.json)
 
+public struct ServerAction: Codable, Identifiable, Hashable {
+    public var name: String
+    public var command: String
+
+    public var id: String { name }
+
+    public init(name: String, command: String) {
+        self.name = name
+        self.command = command
+    }
+}
+
 public struct ServerConfig: Codable, Identifiable, Hashable {
     public var id: String
     public var name: String
@@ -19,6 +31,8 @@ public struct ServerConfig: Codable, Identifiable, Hashable {
     public var healthStatus: Int?
     /// When false, a crash leaves the server stopped instead of restarting it.
     public var autoRestart: Bool
+    /// Maintenance commands that run beside the server without restarting it.
+    public var actions: [ServerAction]
 
     public init(
         id: String = ServerConfig.newID(),
@@ -29,7 +43,8 @@ public struct ServerConfig: Codable, Identifiable, Hashable {
         env: [String: String] = [:],
         healthURL: String? = nil,
         healthStatus: Int? = nil,
-        autoRestart: Bool = true
+        autoRestart: Bool = true,
+        actions: [ServerAction] = []
     ) {
         self.id = id
         self.name = name
@@ -40,6 +55,7 @@ public struct ServerConfig: Codable, Identifiable, Hashable {
         self.healthURL = healthURL
         self.healthStatus = healthStatus
         self.autoRestart = autoRestart
+        self.actions = actions
     }
 
     public static func newID() -> String { "srv_" + String(UUID().uuidString.prefix(8)).lowercased() }
@@ -55,6 +71,7 @@ public struct ServerConfig: Codable, Identifiable, Hashable {
         healthURL = try c.decodeIfPresent(String.self, forKey: .healthURL)
         healthStatus = try c.decodeIfPresent(Int.self, forKey: .healthStatus)
         autoRestart = try c.decodeIfPresent(Bool.self, forKey: .autoRestart) ?? true
+        actions = try c.decodeIfPresent([ServerAction].self, forKey: .actions) ?? []
     }
 }
 

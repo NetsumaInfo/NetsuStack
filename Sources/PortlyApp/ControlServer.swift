@@ -166,6 +166,9 @@ final class ControlServer {
                         "Port \(port) is already configured for \(conflict.project.name)/\(conflict.server.name). Try \(next)."
                     ))
                 }
+                guard validActions(body.actions ?? []) else {
+                    return (400, try fail("Actions need unique non-empty names and non-empty commands"))
+                }
                 let server = ServerConfig(
                     name: body.name,
                     command: body.command,
@@ -174,7 +177,8 @@ final class ControlServer {
                     env: body.env ?? [:],
                     healthURL: body.healthURL,
                     healthStatus: body.healthStatus,
-                    autoRestart: body.autoRestart ?? true
+                    autoRestart: body.autoRestart ?? true,
+                    actions: body.actions ?? []
                 )
                 supervisor.addServer(projectID: project.id, server: server)
                 if body.start == true { supervisor.start(serverID: server.id) }
@@ -220,6 +224,27 @@ final class ControlServer {
                 )
                 guard let job = runtime.temporaryJobStatus else {
                     return (500, try fail("Temporary job metadata was not created"))
+                }
+                return (200, try ok(job))
+
+            case ("POST", "/actions/run"):
+                let body: PortlyAPI.RunServerActionRequest = try request.decode()
+                guard let runtime = supervisor.resolveServer(body.server),
+                      !supervisor.temporaryRuntimeIDs.contains(runtime.id) else {
+                    return (404, try fail("No configured server matching '\(body.server)'"))
+                }
+                guard let action = runtime.config.actions.first(where: {
+                    $0.name.caseInsensitiveCompare(body.action) == .orderedSame
+                }) else {
+                    return (404, try fail("No action named '\(body.action)' on \(runtime.projectName)/\(runtime.config.name)"))
+                }
+                let timeoutSeconds = body.timeoutSeconds ?? TemporaryTimeout.defaultSeconds
+                guard (1...TemporaryTimeout.maximumSeconds).contains(timeoutSeconds) else {
+                    return (400, try fail("Timeout must be between 1 second and 7 days"))
+                }
+                let actionRuntime = supervisor.runAction(action, for: runtime, timeoutSeconds: timeoutSeconds)
+                guard let job = actionRuntime.temporaryJobStatus else {
+                    return (500, try fail("Action job metadata was not created"))
                 }
                 return (200, try ok(job))
 
@@ -273,6 +298,10 @@ final class ControlServer {
                 if let v = body.healthURL { config.healthURL = v }
                 if let v = body.healthStatus { config.healthStatus = v }
                 if let v = body.autoRestart { config.autoRestart = v }
+                if let v = body.actions { config.actions = v }
+                guard validActions(config.actions) else {
+                    return (400, try fail("Actions need unique non-empty names and non-empty commands"))
+                }
                 if let port = config.port, let conflict = supervisor.server(configuredOn: port, excluding: config.id) {
                     let next = supervisor.nextAvailablePort(startingAt: 3000, excluding: config.id)
                     return (400, try fail(
@@ -393,6 +422,15 @@ final class ControlServer {
     private func validMemoryLimit(_ bytes: UInt64?) -> Bool {
         guard let bytes else { return false }
         return (MemorySize.minimumLimitBytes...MemorySize.maximumLimitBytes).contains(bytes)
+    }
+
+    private func validActions(_ actions: [ServerAction]) -> Bool {
+        var seen = Set<String>()
+        return actions.allSatisfy { action in
+            let name = action.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let command = action.command.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !name.isEmpty && !command.isEmpty && seen.insert(name.lowercased()).inserted
+        }
     }
 
     // MARK: - Encoding

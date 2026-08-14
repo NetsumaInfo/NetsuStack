@@ -87,11 +87,14 @@ portly add-server \
 
 portly logs codelynx/web --tail 100
 portly restart codelynx/web --json
+portly update-server codelynx/web --action 'clear-cache=trash .next/cache'
+job_id="$(portly action codelynx/web clear-cache)"
+portly wait "$job_id"
 portly take-over codelynx/web --json
 portly stop --project codelynx --json
 ```
 
-Other commands are `temp` (`temporary`, `run-temp`), `wait`, `memory-limit` (`ram-limit`), `start`, `stop`, `restart`, `take-over` (`adopt`), `update-server`, `remove`, `port`, `kill-port`, `open`, `quit`, `forever`, and `config`. `temp` returns a job ID immediately; `wait` blocks for that ID and exits with the job's real exit code (`124` for timeout). `memory-limit` shows or changes the global default and project overrides; it is off by default. `take-over` stops an external listener on the configured port and relaunches the server under Portly. `forever` manages the per-user macOS LaunchAgent. Run `portly <command> --help` for exact flags. `quit` stops every managed server because the app is the supervisor.
+Other commands are `temp` (`temporary`, `run-temp`), `wait`, `action`, `memory-limit` (`ram-limit`), `start`, `stop`, `restart`, `take-over` (`adopt`), `update-server`, `remove`, `port`, `kill-port`, `open`, `quit`, `forever`, and `config`. `temp` returns a job ID immediately; `wait` blocks for that ID and exits with the job's real exit code (`124` for timeout). `action` runs a configured maintenance command beside a server without restarting it. `memory-limit` shows or changes the global default and project overrides; it is off by default. `take-over` stops an external listener on the configured port and relaunches the server under Portly. `forever` manages the per-user macOS LaunchAgent. Run `portly <command> --help` for exact flags. `quit` stops every managed server because the app is the supervisor.
 
 ## Configuration
 
@@ -124,7 +127,13 @@ Temporary jobs are intentionally absent from `config.json`. They exist only in t
           "env": {},
           "healthURL": null,
           "healthStatus": null,
-          "autoRestart": true
+          "autoRestart": true,
+          "actions": [
+            {
+              "name": "clear-cache",
+              "command": "trash .next/cache"
+            }
+          ]
         }
       ]
     }
@@ -132,7 +141,7 @@ Temporary jobs are intentionally absent from `config.json`. They exist only in t
 }
 ```
 
-`directory` may be absolute or relative to the project root. Portly provides `PORT`, `PORTLY=1`, and `PORTLY_SERVER` to child processes. A bare port check connects to `localhost` over IPv4 or IPv6; `healthURL` may be a path such as `/api/health` or a complete URL.
+`directory` may be absolute or relative to the project root. Portly provides `PORT`, `PORTLY=1`, and `PORTLY_SERVER` to child processes and configured actions. Actions run as supervised temporary jobs in the server's working directory without restarting or stopping the server. A bare port check connects to `localhost` over IPv4 or IPv6; `healthURL` may be a path such as `/api/health` or a complete URL.
 
 ## Local API
 
@@ -148,6 +157,7 @@ The control API listens only on `127.0.0.1:7737`. It can start processes, so it 
 | `GET` | `/ports?port=5173` | Process occupying a port |
 | `POST` | `/start`, `/stop`, `/restart` | Act on a server or project |
 | `POST` | `/temporary/run` | Start a supervised background job outside any project |
+| `POST` | `/actions/run` | Run a configured server action without restarting it |
 | `POST` | `/memory-limit` | Configure the global default or a project memory guard |
 | `POST` | `/projects/add`, `/projects/remove` | Mutate projects |
 | `POST` | `/servers/add`, `/servers/update`, `/servers/remove` | Mutate servers |

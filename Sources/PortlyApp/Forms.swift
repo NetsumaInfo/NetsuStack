@@ -223,6 +223,7 @@ struct ServerForm: View {
     @State private var healthURL = ""
     @State private var autoRestart = true
     @State private var envText = ""
+    @State private var actionsText = ""
     @State private var suggestions: [CommandDetector.Suggestion] = []
     @State private var setupMode: SetupMode = .automatic
     @State private var isDetecting = true
@@ -374,6 +375,10 @@ struct ServerForm: View {
                     .font(.system(size: 12, design: .monospaced))
                     .lineLimit(2...4)
                     .help("One KEY=VALUE per line")
+                TextField("Actions", text: $actionsText, axis: .vertical)
+                    .font(.system(size: 12, design: .monospaced))
+                    .lineLimit(2...5)
+                    .help("One NAME=COMMAND per line, for example clear-cache=trash .next/cache")
             }
         }
     }
@@ -385,8 +390,8 @@ struct ServerForm: View {
     private var canSave: Bool {
         let hasRequiredFields = !name.trimmingCharacters(in: .whitespaces).isEmpty
             && !command.trimmingCharacters(in: .whitespaces).isEmpty
-        if showsAutomaticSetup { return selectedSuggestionID != nil && hasRequiredFields }
-        return hasRequiredFields
+        if showsAutomaticSetup { return selectedSuggestionID != nil && hasRequiredFields && parsedActions != nil }
+        return hasRequiredFields && parsedActions != nil
     }
 
     private var portHelpText: String {
@@ -439,11 +444,26 @@ struct ServerForm: View {
         healthURL = server.healthURL ?? ""
         autoRestart = server.autoRestart
         envText = server.env.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: "\n")
-        advancedExpanded = !(directory.isEmpty && healthURL.isEmpty && envText.isEmpty)
+        actionsText = server.actions.map { "\($0.name)=\($0.command)" }.joined(separator: "\n")
+        advancedExpanded = !(directory.isEmpty && healthURL.isEmpty && envText.isEmpty && actionsText.isEmpty)
     }
 
     private var parsedMemoryLimit: UInt64? {
         MemorySize.parse(memoryLimit)
+    }
+
+    private var parsedActions: [ServerAction]? {
+        var seen = Set<String>()
+        var actions: [ServerAction] = []
+        for line in actionsText.split(separator: "\n") {
+            let parts = line.split(separator: "=", maxSplits: 1)
+            guard parts.count == 2 else { return nil }
+            let name = String(parts[0]).trimmingCharacters(in: .whitespaces)
+            let command = String(parts[1]).trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty, !command.isEmpty, seen.insert(name.lowercased()).inserted else { return nil }
+            actions.append(ServerAction(name: name, command: command))
+        }
+        return actions
     }
 
     private var memoryLimitMessage: String {
@@ -489,7 +509,8 @@ struct ServerForm: View {
             env: env,
             healthURL: healthURL.isEmpty ? nil : healthURL,
             healthStatus: server?.healthStatus,
-            autoRestart: autoRestart
+            autoRestart: autoRestart,
+            actions: parsedActions ?? []
         )
     }
 }
