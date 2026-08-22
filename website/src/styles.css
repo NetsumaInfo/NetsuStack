@@ -364,6 +364,11 @@ p {
   color: var(--text);
 }
 
+.site-header nav a[aria-current="page"] {
+  background: oklch(1 0 0 / 0.06);
+  color: var(--text);
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -1503,6 +1508,160 @@ p {
 
 .install-shell .ok {
   color: var(--live);
+}
+
+/* --------------------------------------------------------------------- docs */
+
+.doc {
+  width: min(100% - (var(--gutter) * 2), var(--shell));
+  margin-inline: auto;
+  padding-block: 112px 80px;
+}
+
+.doc-hero {
+  max-width: 40rem;
+  margin-block-end: clamp(40px, 6vw, 72px);
+}
+
+.doc-hero h1 {
+  margin-block-start: 14px;
+  font-size: clamp(2.4rem, 4vw, 3.4rem);
+  font-weight: 620;
+  letter-spacing: -0.042em;
+  line-height: 1.02;
+}
+
+.doc-hero .lede {
+  margin-block-start: 18px;
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.doc-inline {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.doc-inline:hover {
+  text-decoration-color: var(--accent-soft);
+}
+
+.doc-layout {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: start;
+}
+
+.doc-toc {
+  position: sticky;
+  inset-block-start: 86px;
+  display: grid;
+  gap: 4px;
+}
+
+.doc-toc a {
+  padding: 6px 0;
+  color: var(--faint);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.doc-toc a:hover {
+  color: var(--text);
+}
+
+.doc-body {
+  display: grid;
+  gap: 56px;
+  max-width: 40rem;
+}
+
+.doc-body h2 {
+  margin-block-end: 14px;
+  font-size: 1.45rem;
+  letter-spacing: -0.03em;
+}
+
+.doc-body p,
+.doc-body li {
+  color: var(--dim);
+  font-size: 15.5px;
+  line-height: 1.65;
+}
+
+.doc-body p + p,
+.doc-body .install-shell + p,
+.doc-body p + .install-shell,
+.doc-body p + ul,
+.doc-body ul + p {
+  margin-block-start: 16px;
+}
+
+.doc-body code {
+  font-size: 0.86em;
+  color: var(--text);
+}
+
+.doc-commands {
+  display: grid;
+  gap: 0;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.doc-commands li {
+  display: grid;
+  grid-template-columns: minmax(11rem, 34%) minmax(0, 1fr);
+  gap: 16px;
+  padding: 13px 16px;
+  border-block-start: 1px solid var(--line);
+}
+
+.doc-commands li:first-child {
+  border-block-start: 0;
+}
+
+.doc-commands code {
+  color: var(--accent-soft);
+  font-size: 12.5px;
+}
+
+.doc-list {
+  margin: 0;
+  padding-inline-start: 1.15rem;
+  display: grid;
+  gap: 10px;
+}
+
+.doc-body .link {
+  margin-block-start: 8px;
+}
+
+@media (max-width: 860px) {
+  .doc-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .doc-toc {
+    position: static;
+    grid-auto-flow: column;
+    justify-content: start;
+    gap: 14px;
+    overflow-x: auto;
+    padding-block-end: 8px;
+  }
+
+  .doc-commands li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
 }
 
 /* ------------------------------------------------------------------- footer */

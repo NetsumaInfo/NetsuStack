@@ -51,6 +51,8 @@ The command surface matches macOS (`status`, `temp`, `wait`, `add-project`, `add
 
 Do not run the macOS app and this daemon on the same host: they both claim `127.0.0.1:7737`. Config and logs stay at `~/.config/portly/`.
 
+Docs: [portly.melvynx.dev/linux](https://portly.melvynx.dev/linux)
+
 ## Updates and releases
 
 Portly checks the signed Sparkle feed once a day and also exposes **Check for Updates…** in the app menu and Settings. The installed version is visible in Settings and in the standard About window.

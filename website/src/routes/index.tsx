@@ -14,14 +14,17 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { AgentConsole } from "../components/agent-console";
 import { DuplicateDemo } from "../components/duplicate-demo";
-import { PortlyMark } from "../components/portly-mark";
 import { projects, runningSummary } from "../components/portly-state";
 import { PortsWindow } from "../components/ports-window";
 import { ProductWindow } from "../components/product-window";
+import {
+  GithubMark,
+  SiteFooter,
+  SiteHeader,
+  downloadUrl,
+  repoUrl,
+} from "../components/site-chrome";
 import { useReveal } from "../components/use-reveal";
-
-const repoUrl = "https://github.com/Melvynx/portly";
-const downloadUrl = `${repoUrl}/releases/latest/download/Portly-macOS.zip`;
 declare const __PORTLY_VERSION__: string;
 /* Must be paste-and-run: same three steps the install block below prints. */
 const installCommand = `git clone ${repoUrl}.git && cd portly && ./build.sh --run`;
@@ -228,16 +231,16 @@ function LandingPage() {
             <p className="lede">
               The script builds the app, ad-hoc signs it, installs the portly
               binary on your PATH, and drops the agent skill in
-              ~/.agents/skills/portly.
+              ~/.agents/skills/portly. On Linux, skip the app — use the
+              headless CLI.
             </p>
             <div className="actions">
               <a className="btn btn-primary" href={downloadUrl}>
                 <Download size={16} aria-hidden="true" />
                 Download the build
               </a>
-              <a className="btn btn-ghost" href={`${repoUrl}#install`}>
-                <GithubMark size={16} />
-                Build from source
+              <a className="btn btn-ghost" href="/linux">
+                Linux CLI
               </a>
             </div>
           </div>
@@ -267,37 +270,6 @@ function LandingPage() {
 
       <SiteFooter />
     </>
-  );
-}
-
-function SiteHeader() {
-  return (
-    <header className="site-header">
-      <div className="header-inner">
-        <a className="brand" href="/">
-          <PortlyMark size={26} />
-          Portly
-        </a>
-        <nav aria-label="Main">
-          <a href="#problem">Why</a>
-          <a href="#agents">Agents</a>
-          <a href="#app">App</a>
-          <a href="#capabilities">Capabilities</a>
-        </nav>
-        <div className="header-actions">
-          <a
-            className="header-source"
-            href={repoUrl}
-            aria-label="Source on GitHub"
-          >
-            <GithubMark size={16} />
-          </a>
-          <a className="btn btn-small" href={downloadUrl}>
-            Download
-          </a>
-        </div>
-      </div>
-    </header>
   );
 }
 
@@ -468,42 +440,3 @@ function TakeoverCard() {
   );
 }
 
-function SiteFooter() {
-  return (
-    <footer className="site-footer">
-      <div className="footer-inner">
-        <div className="footer-brand">
-          <PortlyMark size={28} />
-          <div>
-            <strong>Portly</strong>
-            <span>Local servers, under control.</span>
-          </div>
-        </div>
-        <nav aria-label="Footer">
-          <a href={repoUrl}>Source</a>
-          <a href={`${repoUrl}/releases`}>Releases</a>
-          <a href={`${repoUrl}/blob/main/SECURITY.md`}>Security</a>
-          <a href={`${repoUrl}/blob/main/CONTRIBUTING.md`}>Contributing</a>
-          <a href={`${repoUrl}/blob/main/LICENSE`}>MIT</a>
-        </nav>
-        <p>
-          Built by <a href="https://melvynx.com">Melvynx</a>
-        </p>
-      </div>
-    </footer>
-  );
-}
-
-function GithubMark({ size }: { size: number }) {
-  return (
-    <svg
-      aria-hidden="true"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-    >
-      <path d="M12 .7A11.3 11.3 0 0 0 8.4 22.8c.6.1.8-.3.8-.6v-2.2c-3.4.7-4.1-1.4-4.1-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.6-1.4-5.6-6A4.7 4.7 0 0 1 5.7 7.4c-.1-.3-.5-1.6.1-3.3 0 0 1-.3 3.5 1.3a12 12 0 0 1 6.3 0C18 3.7 19.1 4 19.1 4c.6 1.7.2 3 .1 3.3a4.7 4.7 0 0 1 1.2 3.2c0 4.7-2.9 5.7-5.6 6 .4.4.8 1.1.8 2.2v3.4c0 .3.2.7.8.6A11.3 11.3 0 0 0 12 .7Z" />
-    </svg>
-  );
-}
