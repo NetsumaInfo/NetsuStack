@@ -18,6 +18,14 @@ swift build
 ./build.sh --no-install
 ```
 
+The Linux CLI lives in `cli/`:
+
+```bash
+cd cli
+go test ./...
+go build -o portly .
+```
+
 The landing page is a separate TanStack Start app:
 
 ```bash

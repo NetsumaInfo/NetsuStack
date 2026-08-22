@@ -111,4 +111,8 @@ Removing a project stops its servers. Quitting stops every managed server becaus
 
 Use `portly forever enable --json` when Portly itself must launch at every macOS login. The command transfers currently active servers to the launchd-owned app. Verify both `portly forever status --json` and `portly status --json`; launchd state alone does not prove a managed server or its meaningful route works.
 
-Use `portly forever disable --json` to unload the LaunchAgent recoverably while keeping currently active servers under a regular Portly launch. This mode is macOS-only. A Linux host needs a separate headless daemon; do not attempt to install the SwiftUI/AppKit application there.
+Use `portly forever disable --json` to unload the LaunchAgent recoverably while keeping currently active servers under a regular Portly launch.
+
+## Linux
+
+On Linux, use the headless `portly` binary from this repository's `cli/` folder. It is the supervisor: commands auto-start a loopback daemon and speak the same API as macOS. Do not install `Portly.app`. `open` has no window and reports that. `forever` uses a systemd user unit, not launchd; it errors clearly when systemd is missing. Do not run the macOS app and the Linux daemon against the same `7737` port.

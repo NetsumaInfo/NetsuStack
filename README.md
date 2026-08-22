@@ -31,9 +31,25 @@ To launch Portly automatically at every macOS login, use:
 portly forever status --json
 ```
 
-`portly forever enable` preserves and restarts the servers that were active during the handoff to `launchd`. `portly forever disable` removes the LaunchAgent recoverably and leaves active servers running under a regular Portly launch. This mode supervises the macOS app; Linux requires a separate headless daemon because SwiftUI/AppKit cannot run there.
+`portly forever enable` preserves and restarts the servers that were active during the handoff to `launchd`. `portly forever disable` removes the LaunchAgent recoverably and leaves active servers running under a regular Portly launch. This mode supervises the macOS app.
 
 Use `./build.sh --no-install` to assemble `dist/Portly.app` without installing it.
+
+## Linux
+
+Linux uses the headless supervisor in [`cli/`](cli). Do not install the SwiftUI/AppKit app there. The binary is the supervisor: a CLI command auto-starts a loopback daemon on `127.0.0.1` (default `7737`) if needed.
+
+```bash
+cd cli
+go test ./...
+go build -o portly .
+sudo install -m 755 portly /usr/local/bin/portly
+# or: GOOS=linux GOARCH=amd64 go build -o portly .
+```
+
+The command surface matches macOS (`status`, `temp`, `wait`, `add-project`, `add-server`, `start`/`stop`/`restart`, `logs`, `take-over`, `memory-limit`, `forever`, …). `open` succeeds with a no-UI message. `forever` manages a systemd user unit (`portly forever enable|status|disable`); it fails clearly when `systemctl --user` is unavailable instead of writing a LaunchAgent.
+
+Do not run the macOS app and this daemon on the same host: they both claim `127.0.0.1:7737`. Config and logs stay at `~/.config/portly/`.
 
 ## Updates and releases
 
