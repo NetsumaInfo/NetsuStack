@@ -1968,6 +1968,10 @@ dependencies = [
 [[package]]
 name = "netsustack-supervisor"
 version = "0.1.0"
+dependencies = [
+ "chrono",
+ "tempfile",
+]
 
 [[package]]
 name = "netsustack-windows"

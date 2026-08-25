@@ -88,13 +88,13 @@ Chaque tâche doit finir par un commit autonome. Ne pas commencer l’UI termina
 - Create: `crates/netsustack-supervisor/src/logs/mod.rs`
 - Create: `crates/netsustack-supervisor/tests/logs.rs`
 
-- [ ] Écrire les tests UTF-8 fragmenté, CSI, OSC, CR, CRLF, BEL et backspace.
-- [ ] Implémenter un décodeur incremental sans croissance non bornée.
-- [ ] Tester ring buffer, `tail`, changement de limite et rotation `.1.log`.
-- [ ] Implémenter les notes `[netsustack]` et timestamps fichier.
-- [ ] Tester transcript ANSI borné et replay séquencé.
-- [ ] Exécuter `cargo test -p netsustack-supervisor logs`.
-- [ ] Commit: `feat: capture terminal and plain logs`.
+- [x] Écrire les tests UTF-8 fragmenté, CSI, OSC, CR, CRLF, BEL et backspace.
+- [x] Implémenter un décodeur incremental sans croissance non bornée.
+- [x] Tester ring buffer, `tail`, changement de limite et rotation `.1.log`.
+- [x] Implémenter les notes `[netsustack]` et timestamps fichier.
+- [x] Tester transcript ANSI borné et replay séquencé.
+- [x] Exécuter `cargo test -p netsustack-supervisor logs`.
+- [x] Commit: `feat: capture terminal and plain logs`.
 
 **Expected:** les logs CLI sont lisibles et le transcript conserve les couleurs pour xterm.
 
