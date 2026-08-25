@@ -44,16 +44,16 @@ Chaque tâche doit finir par un commit autonome. Ne pas commencer l’UI termina
 - Create: `crates/netsustack-domain/src/timeouts.rs`
 - Create: `crates/netsustack-domain/src/memory.rs`
 - Create: `crates/netsustack-domain/tests/contracts.rs`
-- Create: `tests/contracts/config-v1-minimal.json`, `tests/contracts/status-complete.json`
+- Create: `Tests/contracts/config-v1-minimal.json`, `Tests/contracts/status-complete.json` (racine `Tests` existante, compatible avec la casse Windows)
 
-- [ ] Écrire les tests de valeurs par défaut et anciennes configs.
-- [ ] Implémenter `Project`, `ServerConfig`, `ServerAction`, `NetsuStackConfig` et enums.
-- [ ] Écrire les tests de résolution ID/nom/qualifié et conflits insensibles à la casse.
-- [ ] Implémenter IDs préfixés et résolution.
-- [ ] Écrire les tables de tests mémoire/timeout puis les parseurs.
-- [ ] Ajouter tous les DTO runtime et tests de sérialisation camelCase/ISO-8601.
-- [ ] Exécuter `cargo test -p netsustack-domain`.
-- [ ] Commit: `feat: define shared NetsuStack contracts`.
+- [x] Écrire les tests de valeurs par défaut et anciennes configs.
+- [x] Implémenter `Project`, `ServerConfig`, `ServerAction`, `NetsuStackConfig` et enums.
+- [x] Écrire les tests de résolution ID/nom/qualifié et conflits insensibles à la casse.
+- [x] Implémenter IDs préfixés et résolution.
+- [x] Écrire les tables de tests mémoire/timeout puis les parseurs.
+- [x] Ajouter tous les DTO runtime et tests de sérialisation camelCase/ISO-8601.
+- [x] Exécuter `cargo test -p netsustack-domain`.
+- [x] Commit: `feat: define shared NetsuStack contracts`.
 
 **Expected:** les fixtures JSON se décodent et ré-encodent sans perte de champs normatifs.
 

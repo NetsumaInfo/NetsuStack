@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "apiPort": 7737,
+  "healthIntervalSeconds": 10,
+  "maxRestartAttempts": 5,
+  "logBufferLines": 5000,
+  "logFileMaxMB": 10,
+  "globalMemoryLimitBytes": null,
+  "preferredShell": "auto",
+  "projects": []
+}

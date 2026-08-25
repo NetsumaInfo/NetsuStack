@@ -1,0 +1,76 @@
+{
+  "version": "0.1.0",
+  "apiPort": 7737,
+  "revision": 42,
+  "globalMemoryLimitBytes": 8589934592,
+  "projects": [
+    {
+      "id": "prj_a1b2c3d4",
+      "name": "NetsuStack",
+      "icon": "shippingbox.fill",
+      "color": "#0A84FF",
+      "root": "S:\\projet_app\\NetsuStack",
+      "servers": [
+        {
+          "id": "srv_a1b2c3d4",
+          "name": "web",
+          "projectID": "prj_a1b2c3d4",
+          "projectName": "NetsuStack",
+          "command": "npm run dev",
+          "port": 5173,
+          "directory": "S:\\projet_app\\NetsuStack",
+          "state": "running",
+          "pid": 1234,
+          "startedAt": "2026-08-25T10:15:30Z",
+          "restartCount": 1,
+          "lastExitCode": 0,
+          "lastError": null,
+          "healthy": true,
+          "url": "http://localhost:5173",
+          "cpuPercent": 12.5,
+          "memoryBytes": 268435456,
+          "residentMemoryBytes": 201326592,
+          "processCount": 3,
+          "temporary": false,
+          "timeoutSeconds": null,
+          "deadline": null,
+          "finishedAt": null,
+          "timedOut": false
+        }
+      ],
+      "memoryLimitMode": "custom",
+      "memoryLimitBytes": 4294967296,
+      "effectiveMemoryLimitBytes": 4294967296,
+      "lastMemoryRestartAt": "2026-08-25T09:00:00Z",
+      "lastMemoryRestartBytes": 4509715660
+    }
+  ],
+  "temporaryServers": [
+    {
+      "id": "tmp_1234abcd",
+      "name": "cargo test",
+      "projectID": "",
+      "projectName": "Temporary",
+      "command": "cargo test",
+      "port": null,
+      "directory": "S:\\projet_app\\NetsuStack",
+      "state": "stopped",
+      "pid": null,
+      "startedAt": "2026-08-25T10:00:00Z",
+      "restartCount": 0,
+      "lastExitCode": 0,
+      "lastError": null,
+      "healthy": false,
+      "url": null,
+      "cpuPercent": 0.0,
+      "memoryBytes": 0,
+      "residentMemoryBytes": 0,
+      "processCount": 0,
+      "temporary": true,
+      "timeoutSeconds": 1800,
+      "deadline": "2026-08-25T10:30:00Z",
+      "finishedAt": "2026-08-25T10:05:00Z",
+      "timedOut": false
+    }
+  ]
+}
