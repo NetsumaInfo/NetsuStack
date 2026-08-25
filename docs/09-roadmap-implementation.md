@@ -68,14 +68,14 @@ Chaque tâche doit finir par un commit autonome. Ne pas commencer l’UI termina
 - Create: `crates/netsustack-config/src/token.rs`
 - Create: `crates/netsustack-config/tests/store.rs`
 
-- [ ] Tester les chemins sous un profile utilisateur injecté.
-- [ ] Tester la création initiale et l’écriture atomique JSON pretty/sorted.
-- [ ] Tester backup+migration et conservation d’un fichier invalide.
-- [ ] Tester debounce 350 ms et exclusion des écritures internes.
-- [ ] Tester génération 256 bits, persistance et ACL du token sur Windows.
-- [ ] Implémenter store/watch/migrations/token jusqu’à réussite.
-- [ ] Exécuter `cargo test -p netsustack-config` sur Windows.
-- [ ] Commit: `feat: add atomic configuration store`.
+- [x] Tester les chemins sous un profile utilisateur injecté.
+- [x] Tester la création initiale et l’écriture atomique JSON pretty/sorted.
+- [x] Tester backup+migration et conservation d’un fichier invalide.
+- [x] Tester debounce 350 ms et exclusion des écritures internes.
+- [x] Tester génération 256 bits, persistance et ACL du token sur Windows.
+- [x] Implémenter store/watch/migrations/token jusqu’à réussite.
+- [x] Exécuter `cargo test -p netsustack-config` sur Windows.
+- [x] Commit: `feat: add atomic configuration store`.
 
 **Expected:** aucune édition externe invalide ne remplace la dernière config valide.
 
