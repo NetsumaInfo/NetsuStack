@@ -1,0 +1,22 @@
+[package]
+name = "netsustack-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "netsustack_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+netsustack-api = { path = "../crates/netsustack-api" }
+netsustack-config = { path = "../crates/netsustack-config" }
+netsustack-domain = { path = "../crates/netsustack-domain" }
+netsustack-supervisor = { path = "../crates/netsustack-supervisor" }
+netsustack-windows = { path = "../crates/netsustack-windows" }
+tauri = { version = "2", features = [] }

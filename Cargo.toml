@@ -1,0 +1,18 @@
+[workspace]
+members = [
+  "crates/netsustack-api",
+  "crates/netsustack-cli",
+  "crates/netsustack-config",
+  "crates/netsustack-domain",
+  "crates/netsustack-supervisor",
+  "crates/netsustack-windows",
+  "src-tauri",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/NetsumaInfo/NetsuStack"
+rust-version = "1.85"

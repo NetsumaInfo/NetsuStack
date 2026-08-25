@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "NetsuStack",
+  "version": "0.1.0",
+  "identifier": "com.netsuma.netsustack",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self' 'unsafe-inline'"
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "NetsuStack",
+        "width": 1080,
+        "height": 660,
+        "minWidth": 900,
+        "minHeight": 560,
+        "center": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"]
+  }
+}

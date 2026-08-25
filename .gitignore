@@ -1,6 +1,16 @@
 .build/
 dist/
 .DS_Store
+node_modules/
+target/
+src-tauri/target/
+src-tauri/gen/schemas/
+src-tauri/icons/android/
+src-tauri/icons/ios/
+src-tauri/icons/icon.icns
+.env
+.env.*
+!.env.example
 website/node_modules/
 website/.output/
 website/.tanstack/
