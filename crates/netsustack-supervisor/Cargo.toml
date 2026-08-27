@@ -9,8 +9,23 @@ rust-version.workspace = true
 [lib]
 path = "src/lib.rs"
 
+[[bin]]
+name = "echo-server-fixture"
+path = "../../fixtures/echo-server/src/main.rs"
+
+[[bin]]
+name = "crash-loop-fixture"
+path = "../../fixtures/crash-loop/src/main.rs"
+
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+netsustack-domain = { path = "../netsustack-domain" }
+netsustack-windows = { path = "../netsustack-windows" }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+thiserror = "2"
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+async-trait = "0.1"
 
 [dev-dependencies]
 tempfile = "3"
+tokio = { version = "1", features = ["test-util"] }

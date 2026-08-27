@@ -1,9 +1,7 @@
 use std::{
-    cmp::Ordering,
     collections::VecDeque,
-    ffi::{OsString, c_void},
+    ffi::c_void,
     mem::size_of,
-    path::PathBuf,
     ptr,
     sync::{
         Arc, Condvar, Mutex,
@@ -22,7 +20,7 @@ use windows::{
         Security::SECURITY_ATTRIBUTES,
         Storage::FileSystem::{ReadFile, WriteFile},
         System::{
-            Console::{COORD, ClosePseudoConsole, CreatePseudoConsole, HPCON, ResizePseudoConsole},
+            Console::{ClosePseudoConsole, CreatePseudoConsole, HPCON, ResizePseudoConsole},
             Pipes::CreatePipe,
             Threading::{
                 CREATE_UNICODE_ENVIRONMENT, CreateProcessW, DeleteProcThreadAttributeList,
@@ -38,97 +36,21 @@ use windows::{
 };
 
 mod launch;
+mod options;
+
+pub use options::{SpawnOptions, TerminalSize};
 
 use crate::{
     WindowsError,
     handles::{PipeHandle, ProcessHandle, ThreadHandle},
     job::{Job, STOP_GRACE_PERIOD, StopOutcome},
 };
-use launch::{
-    compare_environment_names, environment_block, launch_buffers, normalized_current_directory,
-    validate_environment_entry,
-};
+use launch::{environment_block, launch_buffers, normalized_current_directory};
 
 const READ_UNTIL_LIMIT: usize = 768 * 1024;
 const INPUT_CHUNK_SIZE: usize = 64 * 1024;
 const INPUT_MESSAGE_LIMIT: usize = 1024 * 1024;
 const INPUT_QUEUE_DEPTH: usize = 16;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TerminalSize {
-    columns: u16,
-    rows: u16,
-}
-
-impl TerminalSize {
-    pub const fn new(columns: u16, rows: u16) -> Self {
-        Self { columns, rows }
-    }
-
-    fn coord(self) -> Result<COORD, WindowsError> {
-        let Ok(x) = i16::try_from(self.columns) else {
-            return Err(WindowsError::InvalidTerminalSize {
-                columns: self.columns,
-                rows: self.rows,
-            });
-        };
-        let Ok(y) = i16::try_from(self.rows) else {
-            return Err(WindowsError::InvalidTerminalSize {
-                columns: self.columns,
-                rows: self.rows,
-            });
-        };
-        if x == 0 || y == 0 {
-            return Err(WindowsError::InvalidTerminalSize {
-                columns: self.columns,
-                rows: self.rows,
-            });
-        }
-        Ok(COORD { X: x, Y: y })
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SpawnOptions {
-    program: PathBuf,
-    arguments: Vec<OsString>,
-    cwd: PathBuf,
-    environment: Vec<(OsString, OsString)>,
-    size: TerminalSize,
-}
-
-impl SpawnOptions {
-    pub fn new<I>(program: PathBuf, arguments: I, cwd: PathBuf, size: TerminalSize) -> Self
-    where
-        I: IntoIterator<Item = OsString>,
-    {
-        Self {
-            program,
-            arguments: arguments.into_iter().collect(),
-            cwd,
-            environment: std::env::vars_os().collect(),
-            size,
-        }
-    }
-
-    pub fn clear_environment(&mut self) {
-        self.environment.clear();
-    }
-
-    pub fn set_environment(&mut self, name: OsString, value: OsString) -> Result<(), WindowsError> {
-        validate_environment_entry(&name, &value)?;
-        if let Some(entry) = self
-            .environment
-            .iter_mut()
-            .find(|(existing, _)| compare_environment_names(existing, &name) == Ordering::Equal)
-        {
-            *entry = (name, value);
-        } else {
-            self.environment.push((name, value));
-        }
-        Ok(())
-    }
-}
 
 #[derive(Debug)]
 struct PseudoConsole(HPCON);
@@ -402,7 +324,10 @@ impl ConPtyProcess {
             // host workaround while bInheritHandles remains false.
             startup.StartupInfo.dwFlags |= STARTF_USESTDHANDLES;
             startup.lpAttributeList = attributes.raw;
-            let (program, mut command_line) = launch_buffers(&options.program, &options.arguments)?;
+            let (program, mut command_line) = match &options.raw_cmd_command {
+                Some(command) => launch::raw_cmd_launch_buffers(&options.program, command)?,
+                None => launch_buffers(&options.program, &options.arguments)?,
+            };
             let cwd = normalized_current_directory(cwd.as_os_str())?;
             let environment = environment_block(&options.environment)?;
             let mut information = PROCESS_INFORMATION::default();

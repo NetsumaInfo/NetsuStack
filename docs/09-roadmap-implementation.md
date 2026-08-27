@@ -132,13 +132,13 @@ Chaque tâche doit finir par un commit autonome. Ne pas commencer l’UI termina
 - Create: `fixtures/crash-loop/src/main.rs`
 - Create: `crates/netsustack-supervisor/tests/runtime.rs`
 
-- [ ] Écrire un fake `ProcessBackend` et les tests de toutes les transitions.
-- [ ] Tester backoff 1/2/4/8/16/30, budget et reset après 30 s sain.
-- [ ] Tester TCP IPv4, IPv6, HTTP 200–399, statut exact et timeout.
-- [ ] Tester trois échecs santé, `autoRestart=false`, manual start/restart.
-- [ ] Implémenter la boucle MPSC sérialisant toutes les commandes runtime.
-- [ ] Brancher le backend Windows et exécuter les tests réels fixture.
-- [ ] Commit: `feat: implement server runtime state machine`.
+- [x] Écrire un fake `ProcessBackend` et les tests de toutes les transitions.
+- [x] Tester backoff 1/2/4/8/16/30, budget et reset après 30 s sain.
+- [x] Tester TCP IPv4, IPv6, HTTP 200–399, statut exact et timeout.
+- [x] Tester trois échecs santé, `autoRestart=false`, manual start/restart.
+- [x] Implémenter la boucle MPSC sérialisant toutes les commandes runtime.
+- [x] Brancher le backend Windows et exécuter les tests réels fixture.
+- [x] Commit: `feat: implement server runtime state machine`.
 
 **Expected:** aucune combinaison start/stop/restart concurrente ne crée deux process trees.
 

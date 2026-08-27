@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::WindowsError;
+use crate::{WindowsError, command_prompt::system_command_prompt_path};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ShellPreference {
@@ -37,8 +37,8 @@ impl ResolvedShell {
         &self.executable
     }
 
-    pub fn command_arguments(&self, command: &OsStr) -> Vec<OsString> {
-        match self.kind {
+    pub fn command_arguments(&self, command: &OsStr) -> Result<Vec<OsString>, WindowsError> {
+        let arguments = match self.kind {
             ShellKind::PowerShell7 | ShellKind::WindowsPowerShell => [
                 OsString::from("-NoLogo"),
                 OsString::from("-NoProfile"),
@@ -46,15 +46,15 @@ impl ResolvedShell {
                 command.to_owned(),
             ]
             .into(),
-            ShellKind::Cmd => [
-                OsString::from("/D"),
-                OsString::from("/S"),
-                OsString::from("/C"),
-                command.to_owned(),
-            ]
-            .into(),
+            ShellKind::Cmd => {
+                return Err(WindowsError::InvalidInput {
+                    field: "cmd command",
+                    reason: "requires SpawnOptions::for_cmd_shell raw command handling",
+                });
+            }
             ShellKind::Custom => vec![command.to_owned()],
-        }
+        };
+        Ok(arguments)
     }
 }
 
@@ -63,15 +63,19 @@ pub fn select_shell(
     search_paths: &[PathBuf],
 ) -> Result<ResolvedShell, WindowsError> {
     let resolved = match preference {
-        ShellPreference::Auto => resolve_executable(OsStr::new("pwsh.exe"), search_paths)
-            .map(|executable| ResolvedShell {
-                kind: ShellKind::PowerShell7,
-                executable,
-            })
-            .unwrap_or_else(|| ResolvedShell {
-                kind: ShellKind::Cmd,
-                executable: PathBuf::from("cmd.exe"),
-            }),
+        ShellPreference::Auto => {
+            if let Some(executable) = resolve_executable(OsStr::new("pwsh.exe"), search_paths) {
+                ResolvedShell {
+                    kind: ShellKind::PowerShell7,
+                    executable,
+                }
+            } else {
+                ResolvedShell {
+                    kind: ShellKind::Cmd,
+                    executable: system_command_prompt_path()?,
+                }
+            }
+        }
         ShellPreference::PowerShell7 => ResolvedShell {
             kind: ShellKind::PowerShell7,
             executable: resolve_executable(OsStr::new("pwsh.exe"), search_paths)
@@ -83,7 +87,7 @@ pub fn select_shell(
         },
         ShellPreference::Cmd => ResolvedShell {
             kind: ShellKind::Cmd,
-            executable: PathBuf::from("cmd.exe"),
+            executable: system_command_prompt_path()?,
         },
         ShellPreference::Custom(executable) => {
             if executable.as_os_str().is_empty() {

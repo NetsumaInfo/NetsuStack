@@ -1,5 +1,6 @@
 //! Windows-specific process, terminal, port, and metrics adapters.
 
+mod command_prompt;
 mod handles;
 
 pub mod conpty;

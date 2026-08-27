@@ -54,6 +54,16 @@ fn terminal_size() -> io::Result<(i16, i16)> {
 
 fn main() -> io::Result<()> {
     let arguments: Vec<String> = env::args().skip(1).collect();
+    if let Some(index) = arguments
+        .iter()
+        .position(|argument| argument == "--print-env")
+    {
+        for name in &arguments[index + 1..] {
+            let value = env::var(name).unwrap_or_else(|_| "<missing>".into());
+            println!("ENV:{name}={value}");
+        }
+        return Ok(());
+    }
     if arguments
         .iter()
         .any(|argument| argument == "--duplex-stress")

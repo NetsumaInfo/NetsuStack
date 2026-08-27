@@ -69,6 +69,39 @@ fn conpty_accepts_a_valid_double_nul_empty_environment() {
 }
 
 #[test]
+fn spawn_environment_overrides_and_removes_names_case_insensitively() {
+    let _guard = test_guard();
+    let mut options = SpawnOptions::new(
+        PathBuf::from(ANSI_FIXTURE),
+        [
+            OsString::from("--print-env"),
+            OsString::from("MIXED_NAME"),
+            OsString::from("NO_COLOR"),
+        ],
+        fixture_cwd(),
+        TerminalSize::new(80, 24),
+    );
+    options.clear_environment();
+    options
+        .set_environment("Mixed_Name".into(), "inherited".into())
+        .expect("initial environment value");
+    options
+        .set_environment("mixed_name".into(), "server".into())
+        .expect("case-insensitive override");
+    options
+        .set_environment("NO_COLOR".into(), "1".into())
+        .expect("NO_COLOR setup");
+    options.remove_environment(OsStr::new("no_color"));
+
+    let mut process = ConPtyProcess::spawn(options).expect("environment fixture spawn");
+    let output = process
+        .read_until(b"ENV:NO_COLOR=<missing>", Duration::from_secs(3))
+        .expect("environment output");
+    let output = String::from_utf8_lossy(&output);
+    assert!(output.contains("ENV:MIXED_NAME=server"));
+}
+
+#[test]
 fn read_until_reports_eof_and_bounds_output_without_the_needle() {
     let _guard = test_guard();
     let mut exited = spawn_ansi(&["--exit-immediately"], TerminalSize::new(80, 24));
@@ -195,10 +228,30 @@ fn shell_auto_prefers_pwsh_and_falls_back_to_cmd_and_resolves_cmd_shims() {
     assert_eq!(selected.executable(), pwsh);
 
     let empty = TempDir::new().expect("empty PATH");
+    let trusted_cmd = PathBuf::from(std::env::var_os("SystemRoot").expect("SystemRoot"))
+        .join("System32")
+        .join("cmd.exe");
     let fallback = select_shell(ShellPreference::Auto, &[empty.path().to_owned()])
         .expect("auto shell fallback");
     assert_eq!(fallback.kind(), ShellKind::Cmd);
-    assert_eq!(fallback.executable(), Path::new("cmd.exe"));
+    assert!(
+        fallback
+            .executable()
+            .to_string_lossy()
+            .eq_ignore_ascii_case(&trusted_cmd.to_string_lossy())
+    );
+
+    let cmd = temp.path().join("cmd.exe");
+    fs::write(&cmd, b"").expect("fake cmd executable");
+    let selected_cmd = select_shell(ShellPreference::Cmd, &[temp.path().to_owned()])
+        .expect("explicit cmd selection");
+    assert!(
+        selected_cmd
+            .executable()
+            .to_string_lossy()
+            .eq_ignore_ascii_case(&trusted_cmd.to_string_lossy())
+    );
+    assert_ne!(selected_cmd.executable(), cmd);
 
     let shim_dir = temp.path().join("shim folder");
     fs::create_dir(&shim_dir).expect("cmd shim directory");

@@ -5,12 +5,11 @@ use std::{
     path::Path,
 };
 
-use windows::Win32::{
-    Globalization::{CSTR_EQUAL, CSTR_GREATER_THAN, CSTR_LESS_THAN, CompareStringOrdinal},
-    System::SystemInformation::GetSystemDirectoryW,
+use windows::Win32::Globalization::{
+    CSTR_EQUAL, CSTR_GREATER_THAN, CSTR_LESS_THAN, CompareStringOrdinal,
 };
 
-use crate::WindowsError;
+use crate::{WindowsError, command_prompt::system_command_prompt_path};
 
 fn command_line(program: &Path, arguments: &[OsString]) -> Result<Vec<u16>, WindowsError> {
     let mut command = quote_windows_argument(program.as_os_str())?;
@@ -43,7 +42,10 @@ pub(super) fn launch_buffers(
         ));
     };
 
-    let interpreter = system_command_prompt()?;
+    let interpreter = wide_nul(
+        system_command_prompt_path()?.as_os_str(),
+        "system command interpreter path",
+    )?;
     let script = user_path_wide(script.as_os_str());
     if script.contains(&(b'"' as u16)) || script.last() == Some(&(b'\\' as u16)) {
         return Err(WindowsError::InvalidInput {
@@ -75,32 +77,43 @@ fn is_batch_file(path: &Path) -> bool {
         })
 }
 
-fn system_command_prompt() -> Result<Vec<u16>, WindowsError> {
-    let mut capacity = 260_usize;
-    loop {
-        let mut buffer = vec![0_u16; capacity];
-        // SAFETY: `buffer` is writable for the full slice passed to Win32.
-        let length = unsafe { GetSystemDirectoryW(Some(&mut buffer)) } as usize;
-        if length == 0 {
-            return Err(WindowsError::api(
-                "GetSystemDirectoryW",
-                windows::core::Error::from_win32(),
-            ));
-        }
-        if length < capacity {
-            buffer.truncate(length);
-            buffer.extend("\\cmd.exe".encode_utf16());
-            buffer.push(0);
-            return Ok(buffer);
-        }
-        capacity = length.saturating_add(1);
-        if capacity > 32_768 {
-            return Err(WindowsError::BufferLimit {
-                operation: "system command interpreter path",
-                limit: 32_768,
-            });
-        }
+pub(super) fn raw_cmd_launch_buffers(
+    program: &Path,
+    command: &OsStr,
+) -> Result<(Vec<u16>, Vec<u16>), WindowsError> {
+    validate_raw_cmd_command(command)?;
+    let mut line = quote_windows_argument(program.as_os_str())?;
+    line.extend(" /D /S /C \"".encode_utf16());
+    line.extend(command.encode_wide());
+    line.push(b'"' as u16);
+    line.push(0);
+    Ok((wide_nul(program.as_os_str(), "program path")?, line))
+}
+
+pub(super) fn validate_raw_cmd_command(command: &OsStr) -> Result<(), WindowsError> {
+    let value = command.encode_wide().collect::<Vec<_>>();
+    if value.is_empty() {
+        return Err(WindowsError::InvalidInput {
+            field: "cmd command",
+            reason: "is empty",
+        });
     }
+    if value.contains(&0) {
+        return Err(WindowsError::InvalidInput {
+            field: "cmd command",
+            reason: "contains an embedded NUL",
+        });
+    }
+    if value
+        .iter()
+        .any(|unit| *unit == b'\r' as u16 || *unit == b'\n' as u16)
+    {
+        return Err(WindowsError::InvalidInput {
+            field: "cmd command",
+            reason: "contains a carriage return or newline",
+        });
+    }
+    Ok(())
 }
 
 fn append_batch_argument(command: &mut Vec<u16>, argument: &OsStr) -> Result<(), WindowsError> {
@@ -344,6 +357,16 @@ mod tests {
             line.windows(3)
                 .any(|part| { part == [b'\\' as u16, b'\\' as u16, b'"' as u16] })
         );
+    }
+
+    #[test]
+    fn raw_cmd_payload_is_not_crt_quoted_and_rejects_control_line_breaks() {
+        let raw = OsStr::new(r#""C:\Program Files\tool.exe" "literal & value""#);
+        let (_, line) = raw_cmd_launch_buffers(Path::new(r"C:\Windows\System32\cmd.exe"), raw)
+            .expect("valid raw cmd command");
+        let line = String::from_utf16(&line[..line.len() - 1]).unwrap();
+        assert!(line.ends_with(r#" /D /S /C ""C:\Program Files\tool.exe" "literal & value"""#));
+        assert!(validate_raw_cmd_command(OsStr::new("echo ok\r\nwhoami")).is_err());
     }
 
     #[test]
