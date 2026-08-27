@@ -110,14 +110,14 @@ Chaque tâche doit finir par un commit autonome. Ne pas commencer l’UI termina
 - Create: `fixtures/child-tree/src/main.rs`
 - Create: `crates/netsustack-windows/tests/conpty_job.rs`
 
-- [ ] Tester input/output VT UTF-8 et terminal size initiale.
-- [ ] Encapsuler pipes, HPCON, process/thread et Job handles avec `Drop`.
-- [ ] Tester resize réel via `ResizePseudoConsole`.
-- [ ] Tester sélection auto pwsh/cmd et résolution `.cmd`.
-- [ ] Tester Ctrl+C coopératif puis fallback `TerminateJobObject` à 5 s.
-- [ ] Tester parent/enfant/petit-enfant et port libéré après fermeture du job.
-- [ ] Exécuter `cargo test -p netsustack-windows --test conpty_job -- --nocapture`.
-- [ ] Commit: `feat: supervise Windows process trees with ConPTY`.
+- [x] Tester input/output VT UTF-8 et terminal size initiale.
+- [x] Encapsuler pipes, HPCON, process/thread et Job handles avec `Drop`.
+- [x] Tester resize réel via `ResizePseudoConsole`.
+- [x] Tester sélection auto pwsh/cmd et résolution `.cmd`.
+- [x] Tester Ctrl+C coopératif puis fallback `TerminateJobObject` à 5 s.
+- [x] Tester parent/enfant/petit-enfant et port libéré après fermeture du job.
+- [x] Exécuter `cargo test -p netsustack-windows --test conpty_job -- --nocapture`.
+- [x] Commit: `feat: supervise Windows process trees with ConPTY`.
 
 **Expected:** zéro descendant et zéro handle restant après 100 cycles automatisés.
 

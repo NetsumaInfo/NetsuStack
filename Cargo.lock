@@ -1976,6 +1976,11 @@ dependencies = [
 [[package]]
 name = "netsustack-windows"
 version = "0.1.0"
+dependencies = [
+ "tempfile",
+ "thiserror 2.0.20",
+ "windows",
+]
 
 [[package]]
 name = "new_debug_unreachable"

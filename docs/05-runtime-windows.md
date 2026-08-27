@@ -14,14 +14,12 @@ Ordre obligatoire :
 4. appeler `CreatePseudoConsole(cols, rows, inputRead, outputWrite, 0)` ;
 5. créer un Job Object ;
 6. activer `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` sans autoriser le breakaway ;
-7. préparer `STARTUPINFOEXW` avec `PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE` ;
-8. créer le shell suspendu avec `CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT | CREATE_NEW_PROCESS_GROUP | CREATE_SUSPENDED` ;
-9. assigner le processus au Job Object ;
-10. reprendre le thread ;
-11. lancer les tâches async de lecture, wait et santé ;
-12. fermer immédiatement tous les handles qui n’appartiennent plus au parent.
+7. préparer `STARTUPINFOEXW` avec `PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE` et `PROC_THREAD_ATTRIBUTE_JOB_LIST` ;
+8. créer le shell avec `CREATE_UNICODE_ENVIRONMENT | EXTENDED_STARTUPINFO_PRESENT` : l’assignation au Job est atomique avec la création ;
+9. lancer immédiatement les pompes dédiées d’entrée et de drainage de sortie, puis les tâches de wait et santé ;
+10. fermer tous les handles qui n’appartiennent plus au parent.
 
-Si l’assignation au Job Object échoue, le processus suspendu est terminé avant tout retour d’erreur. Un serveur ne peut jamais démarrer sans ownership de son arbre.
+`CREATE_NEW_PROCESS_GROUP` est volontairement absent : Windows désactive Ctrl+C pour le groupe ainsi créé, ce qui contredit l’arrêt coopératif par ETX de ConPTY. Le Job Object constitue l’unité d’ownership et empêche tout processus de démarrer hors de l’arbre supervisé. Un serveur ne peut donc jamais démarrer avant son assignation au Job.
 
 Les Job Objects permettent de gérer un groupe de processus comme une unité ; les enfants héritent normalement du job et `KILL_ON_JOB_CLOSE` garantit le nettoyage. Référence : [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects).
 
