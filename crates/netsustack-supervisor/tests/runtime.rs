@@ -14,8 +14,8 @@ use netsustack_domain::{PreferredShell, ServerConfig, ServerState};
 use netsustack_supervisor::backoff::RestartBackoff;
 use netsustack_supervisor::health::{HealthChecker, resolved_health_url};
 use netsustack_supervisor::runtime::{
-    ManagedProcess, ProcessBackend, RuntimeError, RuntimeSettings, RuntimeSpec, ServerRuntime,
-    SpawnRequest, WindowsProcessBackend,
+    ManagedProcess, ProcessBackend, ProcessStopResult, RuntimeError, RuntimeSettings, RuntimeSpec,
+    ServerRuntime, SpawnRequest, WindowsProcessBackend,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -193,6 +193,7 @@ struct FakeState {
     resize_count: usize,
     health_checks: usize,
     fail_next_stop: bool,
+    fail_next_stop_output: bool,
     fail_next_wait: bool,
     block_health: bool,
 }
@@ -216,6 +217,10 @@ impl FakeBackend {
 
     fn fail_next_stop(&self) {
         self.0.lock().unwrap().fail_next_stop = true;
+    }
+
+    fn fail_next_stop_output(&self) {
+        self.0.lock().unwrap().fail_next_stop_output = true;
     }
 
     fn fail_next_wait(&self) {
@@ -287,15 +292,29 @@ impl ManagedProcess for FakeProcess {
         Ok(exit)
     }
 
-    fn stop(mut self: Box<Self>) -> Result<(), RuntimeError> {
+    fn stop(mut self: Box<Self>) -> ProcessStopResult {
         let mut state = self.backend.lock().unwrap();
         if state.fail_next_stop {
             state.fail_next_stop = false;
-            return Err(RuntimeError::Backend("expected stop failure".into()));
+            return ProcessStopResult {
+                final_output: Vec::new(),
+                cleanup_error: Some(RuntimeError::Backend("expected stop failure".into())),
+                output_error: None,
+            };
+        }
+        if state.fail_next_stop_output {
+            state.fail_next_stop_output = false;
+            drop(state);
+            self.mark_inactive();
+            return ProcessStopResult {
+                final_output: Vec::new(),
+                cleanup_error: None,
+                output_error: Some(RuntimeError::Backend("expected output failure".into())),
+            };
         }
         drop(state);
         self.mark_inactive();
-        Ok(())
+        ProcessStopResult::default()
     }
 
     fn input(&mut self, _bytes: &[u8]) -> Result<(), RuntimeError> {
@@ -363,12 +382,12 @@ impl ManagedProcess for BlockingStopProcess {
         Ok(None)
     }
 
-    fn stop(self: Box<Self>) -> Result<(), RuntimeError> {
+    fn stop(self: Box<Self>) -> ProcessStopResult {
         let active = self.tracker.active.fetch_add(1, Ordering::SeqCst) + 1;
         self.tracker.max_active.fetch_max(active, Ordering::SeqCst);
         std::thread::sleep(Duration::from_millis(120));
         self.tracker.active.fetch_sub(1, Ordering::SeqCst);
-        Ok(())
+        ProcessStopResult::default()
     }
 
     fn input(&mut self, _bytes: &[u8]) -> Result<(), RuntimeError> {
@@ -947,6 +966,23 @@ async fn manual_restart_resets_counter_even_when_cleanup_reports_an_error() {
     assert!(runtime.restart().await.is_err());
     assert_eq!(runtime.status().state, ServerState::Stopped);
     assert_eq!(runtime.status().restart_count, 0);
+}
+
+#[tokio::test]
+async fn terminal_output_error_after_successful_cleanup_does_not_block_manual_restart() {
+    let backend = Arc::new(FakeBackend::default());
+    let runtime = ServerRuntime::spawn(runtime_spec(true, 5), backend.clone());
+    runtime.start().await.unwrap();
+    backend.fail_next_stop_output();
+
+    runtime
+        .restart()
+        .await
+        .expect("terminal capture failure must not make cleanup fatal");
+
+    assert_eq!(runtime.status().state, ServerState::Running);
+    assert_eq!(runtime.status().last_error, None);
+    assert_eq!(backend.snapshot().2, 2);
 }
 
 #[tokio::test(start_paused = true)]

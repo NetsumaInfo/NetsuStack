@@ -150,12 +150,12 @@ Chaque tâche doit finir par un commit autonome. Ne pas commencer l’UI termina
 - Create: `crates/netsustack-supervisor/src/temporary.rs`
 - Create: `crates/netsustack-supervisor/tests/temporary.rs`
 
-- [ ] Tester succès, code non nul, stop 130 et timeout 124.
-- [ ] Tester deadline monotone et timeout maximum 7 jours.
-- [ ] Tester conservation une heure avec horloge injectée.
-- [ ] Tester action héritant cwd/env/PORT/NETSUSTACK_SERVER.
-- [ ] Implémenter temporaire/action sans écriture config et sans auto-restart.
-- [ ] Commit: `feat: add supervised temporary jobs and actions`.
+- [x] Tester succès, code non nul, stop 130 et timeout 124.
+- [x] Tester deadline monotone et timeout maximum 7 jours.
+- [x] Tester conservation une heure avec horloge injectée.
+- [x] Tester action héritant cwd/env/PORT/NETSUSTACK_SERVER.
+- [x] Implémenter temporaire/action sans écriture config et sans auto-restart.
+- [x] Commit: `feat: add supervised temporary jobs and actions`.
 
 **Expected:** `wait` peut récupérer le résultat d’un job très court terminé avant son appel.
 

@@ -62,8 +62,12 @@ impl RuntimeSpec {
     }
 
     pub(super) fn spawn_request(&self) -> SpawnRequest {
+        self.spawn_request_with_command(self.config.command.clone())
+    }
+
+    pub(super) fn spawn_request_with_command(&self, command: String) -> SpawnRequest {
         SpawnRequest {
-            command: self.config.command.clone(),
+            command,
             cwd: self.working_directory(),
             environment: self.config.env.clone(),
             preferred_shell: self.settings.preferred_shell.clone(),
@@ -86,9 +90,25 @@ pub struct SpawnRequest {
 pub trait ManagedProcess: Send + 'static {
     fn pid(&self) -> u32;
     fn try_wait(&mut self) -> Result<Option<i32>, RuntimeError>;
-    fn stop(self: Box<Self>) -> Result<(), RuntimeError>;
+    fn stop(self: Box<Self>) -> ProcessStopResult;
     fn input(&mut self, bytes: &[u8]) -> Result<(), RuntimeError>;
     fn resize(&mut self, columns: u16, rows: u16) -> Result<(), RuntimeError>;
+    fn drain_output(&mut self) -> Result<Vec<u8>, RuntimeError> {
+        Ok(Vec::new())
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ProcessStopResult {
+    pub final_output: Vec<u8>,
+    pub cleanup_error: Option<RuntimeError>,
+    pub output_error: Option<RuntimeError>,
+}
+
+impl ProcessStopResult {
+    pub fn into_result(self) -> Result<(), RuntimeError> {
+        self.cleanup_error.map_or(Ok(()), Err)
+    }
 }
 
 #[async_trait]

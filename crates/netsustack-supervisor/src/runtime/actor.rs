@@ -483,6 +483,7 @@ async fn stop_managed_process(process: Box<dyn ManagedProcess>) -> Result<(), Ru
     tokio::task::spawn_blocking(move || process.stop())
         .await
         .map_err(|error| RuntimeError::Backend(format!("stop task failed: {error}")))?
+        .into_result()
 }
 
 async fn drop_managed_process(process: Box<dyn ManagedProcess>) {

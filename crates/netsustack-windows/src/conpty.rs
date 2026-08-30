@@ -53,6 +53,14 @@ const INPUT_MESSAGE_LIMIT: usize = 1024 * 1024;
 const INPUT_QUEUE_DEPTH: usize = 16;
 
 #[derive(Debug)]
+pub struct ConPtyStopResult {
+    pub outcome: Option<StopOutcome>,
+    pub final_output: Vec<u8>,
+    pub cleanup_error: Option<WindowsError>,
+    pub output_error: Option<WindowsError>,
+}
+
+#[derive(Debug)]
 struct PseudoConsole(HPCON);
 
 impl PseudoConsole {
@@ -472,6 +480,34 @@ impl ConPtyProcess {
         }
     }
 
+    /// Drains all output currently buffered by the dedicated ConPTY reader.
+    /// Completed processes retain this queue until their owner consumes it.
+    pub fn read_available(&mut self) -> Result<Vec<u8>, WindowsError> {
+        let Some(output) = self.output.as_ref() else {
+            return Ok(Vec::new());
+        };
+        let mut state = output
+            .shared
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut bytes = Vec::with_capacity(state.queued_bytes);
+        if state.dropped {
+            bytes.extend_from_slice(b"[netsustack] ConPTY output truncated\r\n");
+            state.dropped = false;
+        }
+        while let Some(chunk) = state.chunks.pop_front() {
+            bytes.extend_from_slice(&chunk);
+        }
+        state.queued_bytes = 0;
+        if bytes.is_empty()
+            && let Some(error) = state.error.take()
+        {
+            return Err(error);
+        }
+        Ok(bytes)
+    }
+
     pub fn resize(&self, size: TerminalSize) -> Result<(), WindowsError> {
         self.console
             .as_ref()
@@ -535,6 +571,31 @@ impl ConPtyProcess {
             self.stop_outcome = Some(outcome);
         }
         result
+    }
+
+    pub fn stop_and_drain(mut self) -> ConPtyStopResult {
+        let (outcome, cleanup_error) = match self.stop() {
+            Ok(outcome) => (Some(outcome), None),
+            Err(error) => (None, Some(error)),
+        };
+        let mut final_output = Vec::new();
+        let mut output_error = None;
+        loop {
+            match self.read_available() {
+                Ok(output) if output.is_empty() => break,
+                Ok(output) => final_output.extend_from_slice(&output),
+                Err(error) => {
+                    output_error = Some(error);
+                    break;
+                }
+            }
+        }
+        ConPtyStopResult {
+            outcome,
+            final_output,
+            cleanup_error,
+            output_error,
+        }
     }
 
     fn capture_root_exit_code(&mut self) -> Result<(), WindowsError> {
@@ -632,4 +693,67 @@ fn pipe_pair(parent_reads: bool) -> Result<(PipeHandle, PipeHandle), WindowsErro
     unsafe { SetHandleInformation(parent.raw(), HANDLE_FLAG_INHERIT.0, HANDLE_FLAGS(0)) }
         .map_err(|error| WindowsError::api("SetHandleInformation", error))?;
     Ok((first, second))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn process_with_output_and_reader_error(bytes: Vec<u8>) -> ConPtyProcess {
+        let output = OutputPump {
+            shared: Arc::new(OutputShared {
+                state: Mutex::new(OutputState {
+                    chunks: VecDeque::from([bytes.clone()]),
+                    queued_bytes: bytes.len(),
+                    error: Some(WindowsError::Timeout {
+                        operation: "injected ConPTY reader",
+                    }),
+                    ..OutputState::default()
+                }),
+                changed: Condvar::new(),
+            }),
+            worker: None,
+        };
+        ConPtyProcess {
+            job: None,
+            input: None,
+            retired_input_workers: Vec::new(),
+            output: Some(output),
+            console: None,
+            process: None,
+            process_id: 0,
+            exit_code: None,
+            stop_outcome: None,
+        }
+    }
+
+    #[test]
+    fn read_available_returns_queued_bytes_before_a_reader_error() {
+        let bytes = b"before reader failure".to_vec();
+        let mut process = process_with_output_and_reader_error(bytes.clone());
+
+        assert_eq!(process.read_available().unwrap(), bytes);
+        assert!(matches!(
+            process.read_available(),
+            Err(WindowsError::Timeout {
+                operation: "injected ConPTY reader"
+            })
+        ));
+    }
+
+    #[test]
+    fn stop_and_drain_keeps_reader_error_separate_from_successful_cleanup() {
+        let bytes = b"final output".to_vec();
+        let stopped = process_with_output_and_reader_error(bytes.clone()).stop_and_drain();
+
+        assert_eq!(stopped.outcome, Some(StopOutcome::Cooperative));
+        assert_eq!(stopped.final_output, bytes);
+        assert!(stopped.cleanup_error.is_none());
+        assert!(matches!(
+            stopped.output_error,
+            Some(WindowsError::Timeout {
+                operation: "injected ConPTY reader"
+            })
+        ));
+    }
 }

@@ -8,7 +8,7 @@ use netsustack_windows::{
 
 use crate::{
     health::HealthChecker,
-    runtime::{ManagedProcess, ProcessBackend, RuntimeError, SpawnRequest},
+    runtime::{ManagedProcess, ProcessBackend, ProcessStopResult, RuntimeError, SpawnRequest},
 };
 
 #[derive(Debug, Clone)]
@@ -54,8 +54,13 @@ impl ManagedProcess for WindowsManagedProcess {
             .map_err(backend_error)
     }
 
-    fn stop(mut self: Box<Self>) -> Result<(), RuntimeError> {
-        self.0.stop().map(|_| ()).map_err(backend_error)
+    fn stop(self: Box<Self>) -> ProcessStopResult {
+        let stopped = self.0.stop_and_drain();
+        ProcessStopResult {
+            final_output: stopped.final_output,
+            cleanup_error: stopped.cleanup_error.map(backend_error),
+            output_error: stopped.output_error.map(backend_error),
+        }
     }
 
     fn input(&mut self, bytes: &[u8]) -> Result<(), RuntimeError> {
@@ -66,6 +71,10 @@ impl ManagedProcess for WindowsManagedProcess {
         self.0
             .resize(TerminalSize::new(columns, rows))
             .map_err(backend_error)
+    }
+
+    fn drain_output(&mut self) -> Result<Vec<u8>, RuntimeError> {
+        self.0.read_available().map_err(backend_error)
     }
 }
 

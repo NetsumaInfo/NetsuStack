@@ -6,9 +6,12 @@ use std::{
 };
 
 #[cfg(windows)]
+use windows::Win32::Storage::FileSystem::WriteFile;
+#[cfg(windows)]
 use windows::Win32::System::Console::{
-    CONSOLE_SCREEN_BUFFER_INFO, ENABLE_ECHO_INPUT, GetConsoleMode, GetConsoleScreenBufferInfo,
-    GetStdHandle, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, SetConsoleCtrlHandler, SetConsoleMode,
+    CONSOLE_SCREEN_BUFFER_INFO, CTRL_C_EVENT, ENABLE_ECHO_INPUT, GetConsoleMode,
+    GetConsoleScreenBufferInfo, GetStdHandle, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
+    SetConsoleCtrlHandler, SetConsoleMode,
 };
 #[cfg(windows)]
 use windows::core::BOOL;
@@ -16,6 +19,22 @@ use windows::core::BOOL;
 #[cfg(windows)]
 unsafe extern "system" fn ignore_control(_control_type: u32) -> BOOL {
     true.into()
+}
+
+#[cfg(windows)]
+unsafe extern "system" fn report_cleanup(control_type: u32) -> BOOL {
+    if control_type != CTRL_C_EVENT {
+        return false.into();
+    }
+    let Ok(output) = (unsafe { GetStdHandle(STD_OUTPUT_HANDLE) }) else {
+        return false.into();
+    };
+    let message = b"CLEANUP-COMPLETE\r\n";
+    let mut written = 0;
+    // SAFETY: The process owns its standard output handle and the static message
+    // remains readable for the duration of the synchronous handler call.
+    let _ = unsafe { WriteFile(output, Some(message), Some(&mut written), None) };
+    false.into()
 }
 
 #[cfg(windows)]
@@ -95,6 +114,15 @@ fn main() -> io::Result<()> {
         .any(|argument| argument == "--exit-immediately")
     {
         return Ok(());
+    }
+    #[cfg(windows)]
+    if arguments
+        .iter()
+        .any(|argument| argument == "--cleanup-output")
+    {
+        // SAFETY: The static callback remains valid for the process lifetime.
+        unsafe { SetConsoleCtrlHandler(Some(report_cleanup), true) }
+            .map_err(|error| io::Error::other(error.to_string()))?;
     }
     #[cfg(windows)]
     if arguments

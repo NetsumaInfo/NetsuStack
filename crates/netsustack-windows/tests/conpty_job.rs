@@ -52,6 +52,23 @@ fn conpty_transports_vt_utf8_input_and_initial_terminal_size() {
 }
 
 #[test]
+fn completed_process_keeps_unread_output_available_for_supervisor_capture() {
+    let _guard = test_guard();
+    let mut process = spawn_ansi(&["--print-env", "PATH"], TerminalSize::new(80, 24));
+
+    assert!(
+        process
+            .wait_for_exit(Duration::from_secs(3))
+            .expect("short process wait")
+            .is_some()
+    );
+    let output = process
+        .read_available()
+        .expect("unread output after process completion");
+    assert!(String::from_utf8_lossy(&output).contains("ENV:PATH="));
+}
+
+#[test]
 fn conpty_accepts_a_valid_double_nul_empty_environment() {
     let _guard = test_guard();
     let mut options = SpawnOptions::new(
@@ -320,6 +337,34 @@ fn ctrl_c_stops_a_cooperative_console_without_forcing_the_job() {
         StopOutcome::Cooperative
     );
     assert_eq!(process.active_processes().expect("empty job"), 0);
+}
+
+#[test]
+fn consuming_stop_returns_output_emitted_during_cooperative_cleanup() {
+    let _guard = test_guard();
+    let mut process = spawn_ansi(&["--cleanup-output"], TerminalSize::new(80, 24));
+    process
+        .read_until(b"READY", Duration::from_secs(3))
+        .expect("fixture ready");
+
+    let stopped = process.stop_and_drain();
+
+    assert_eq!(stopped.outcome, Some(StopOutcome::Cooperative));
+    assert!(
+        stopped.cleanup_error.is_none(),
+        "cleanup error: {:?}",
+        stopped.cleanup_error
+    );
+    assert!(
+        stopped.output_error.is_none(),
+        "output error: {:?}",
+        stopped.output_error
+    );
+    assert!(
+        String::from_utf8_lossy(&stopped.final_output).contains("CLEANUP-COMPLETE"),
+        "missing cleanup output: {:?}",
+        String::from_utf8_lossy(&stopped.final_output)
+    );
 }
 
 #[test]
