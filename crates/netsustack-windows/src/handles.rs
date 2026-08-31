@@ -47,6 +47,14 @@ impl WindowsError {
     pub(crate) fn io(operation: &'static str, source: std::io::Error) -> Self {
         Self::Io { operation, source }
     }
+
+    pub(crate) fn api_code(operation: &'static str, code: u32) -> Self {
+        Self::Api {
+            operation,
+            code: code as i32,
+            message: format!("Windows error {code}"),
+        }
+    }
 }
 
 pub(crate) struct OwnedHandle(HANDLE);

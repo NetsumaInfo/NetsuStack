@@ -171,12 +171,12 @@ Chaque tâche doit finir par un commit autonome. Ne pas commencer l’UI termina
 - Create: `crates/netsustack-windows/tests/ports.rs`
 - Create: `crates/netsustack-supervisor/tests/takeover.rs`
 
-- [ ] Tester `GetExtendedTcpTable` v4/v6 et déduplication.
-- [ ] Tester identité PID + creation time + executable + port.
-- [ ] Tester refus sur cible changée et processus protégé.
-- [ ] Tester parsing Docker inspect pour HostPort exact et labels Compose.
-- [ ] Tester takeover : terminate/stop container, 50×200 ms, start configuré.
-- [ ] Commit: `feat: inspect and take over Windows ports safely`.
+- [x] Tester `GetExtendedTcpTable` v4/v6 et déduplication.
+- [x] Tester identité PID + creation time + executable + port.
+- [x] Tester refus sur cible changée et processus protégé.
+- [x] Tester parsing Docker inspect pour HostPort exact et labels Compose.
+- [x] Tester takeover : terminate/stop container, 50×200 ms, start configuré.
+- [x] Commit: `feat: inspect and take over Windows ports safely`.
 
 **Expected:** aucune action n’est envoyée à un PID qui ne correspond plus au snapshot.
 
